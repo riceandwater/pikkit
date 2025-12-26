@@ -1,0 +1,32 @@
+# Ignore uploads folder (user uploaded images)
+uploads/
+
+# Ignore database config (security)
+dbconnect.php
+
+# Ignore PHPMailer config (optional - contains credentials)
+# PHPMailer/
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Ignore logs
+*.log
+error_log
+debug.log
+
+# Ignore temporary files
+*.tmp
+*.temp
+~*
+
+# Ignore node_modules (if you add any later)
+node_modules/
