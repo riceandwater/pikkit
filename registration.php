@@ -56,8 +56,6 @@ if(isset($_POST['register'])) {
         }
     }
 }
-
-// Handle Google Sign Up (will be processed by google_auth.php)
 ?>
 
 <!DOCTYPE html>
@@ -81,7 +79,7 @@ if(isset($_POST['register'])) {
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 10px;
         }
         
         .register-container {
@@ -90,30 +88,31 @@ if(isset($_POST['register'])) {
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             width: 100%;
             max-width: 450px;
-            padding: 40px;
+            padding: 20px 25px 18px;
         }
         
         .logo {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 12px;
         }
         
         .logo img {
-            max-width: 200px;
+            max-width: 300px;
+            width: 100%;
             height: auto;
         }
         
         .logo p {
             color: #666;
-            margin-top: 15px;
-            font-size: 14px;
+            margin-top: 6px;
+            font-size: 12px;
         }
         
         .alert {
-            padding: 12px;
+            padding: 7px 10px;
             border-radius: 5px;
-            margin-bottom: 20px;
-            font-size: 14px;
+            margin-bottom: 10px;
+            font-size: 12px;
         }
         
         .alert-error {
@@ -129,20 +128,20 @@ if(isset($_POST['register'])) {
         }
         
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
         
         .form-group label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             color: #333;
             font-weight: 500;
-            font-size: 14px;
+            font-size: 12px;
         }
         
         .form-group input {
             width: 100%;
-            padding: 12px 15px;
+            padding: 9px 11px;
             border: 1px solid #ddd;
             border-radius: 5px;
             font-size: 14px;
@@ -155,20 +154,21 @@ if(isset($_POST['register'])) {
         }
         
         .password-requirements {
-            font-size: 12px;
+            font-size: 10px;
             color: #666;
-            margin-top: 5px;
+            margin-top: 2px;
         }
         
         .btn {
             width: 100%;
-            padding: 14px;
+            padding: 10px;
             border: none;
             border-radius: 5px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
+            margin-top: 4px;
         }
         
         .btn-primary {
@@ -182,7 +182,7 @@ if(isset($_POST['register'])) {
         
         .divider {
             text-align: center;
-            margin: 25px 0;
+            margin: 12px 0;
             position: relative;
         }
         
@@ -198,40 +198,26 @@ if(isset($_POST['register'])) {
         
         .divider span {
             background: white;
-            padding: 0 15px;
+            padding: 0 12px;
             position: relative;
             color: #666;
-            font-size: 14px;
+            font-size: 12px;
         }
         
-        .google-btn {
+        .google-btn-container {
             width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background: white;
-            cursor: pointer;
             display: flex;
-            align-items: center;
             justify-content: center;
-            gap: 10px;
-            font-size: 15px;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-        
-        .google-btn:hover {
-            border-color: #333;
-            background: #f9f9f9;
+            margin-bottom: 10px;
         }
         
         .login-link {
             text-align: center;
-            margin-top: 25px;
-            padding-top: 25px;
+            margin-top: 14px;
+            padding-top: 14px;
             border-top: 1px solid #e0e0e0;
             color: #666;
-            font-size: 14px;
+            font-size: 12px;
         }
         
         .login-link a {
@@ -248,7 +234,7 @@ if(isset($_POST['register'])) {
 <body>
     <div class="register-container">
         <div class="logo">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 150'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial Black, sans-serif' font-size='80' font-weight='900' fill='%23FF69B4' letter-spacing='-2'%3EPiKKiT%3C/text%3E%3C/svg%3E" alt="Pikkit Logo">
+            <img src="images/pikkit logo.png" alt="Pikkit Logo">
             <p>Create your account and start shopping!</p>
         </div>
         
@@ -260,21 +246,26 @@ if(isset($_POST['register'])) {
             <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
         <?php endif; ?>
         
-        <!-- Google Sign Up -->
-        <div id="g_id_onload"
-             data-client_id="863511518630-t4oj6ktd9net7g1pj9a8etrot6ict9md.apps.googleusercontent.com"
-             data-callback="handleCredentialResponse">
+        <!-- Google Sign Up Button -->
+        <div class="google-btn-container">
+            <div id="g_id_onload"
+                 data-client_id="863511518630-t4oj6ktd9net7g1pj9a8etrot6ict9md.apps.googleusercontent.com"
+                 data-context="signup"
+                 data-ux_mode="popup"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+            
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-shape="rectangular"
+                 data-theme="outline"
+                 data-text="signup_with"
+                 data-size="large"
+                 data-logo_alignment="left"
+                 data-width="400">
+            </div>
         </div>
-        
-        <button class="google-btn" onclick="googleSignIn()">
-            <svg width="20" height="20" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            Sign up with Google
-        </button>
         
         <div class="divider">
             <span>OR</span>
@@ -288,7 +279,7 @@ if(isset($_POST['register'])) {
             </div>
             
             <div class="form-group">
-                <label for="email">Email Address</label>
+                <label for="email">Email</label>
                 <input type="email" id="email" name="email" required>
             </div>
             
@@ -313,6 +304,8 @@ if(isset($_POST['register'])) {
     
     <script>
         function handleCredentialResponse(response) {
+            console.log("Google Sign-Up response received");
+            
             // Send the ID token to your server
             fetch('google_auth.php', {
                 method: 'POST',
@@ -325,16 +318,17 @@ if(isset($_POST['register'])) {
             })
             .then(res => res.json())
             .then(data => {
+                console.log("Server response:", data);
                 if(data.success) {
                     window.location.href = 'index.php';
                 } else {
-                    alert('Google sign up failed. Please try again.');
+                    alert('Google sign up failed: ' + (data.message || 'Please try again.'));
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
             });
-        }
-        
-        function googleSignIn() {
-            google.accounts.id.prompt();
         }
     </script>
 </body>

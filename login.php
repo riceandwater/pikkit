@@ -1,8 +1,30 @@
 <?php
+// Start output buffering FIRST to prevent header errors
+ob_start();
 session_start();
+
+// Handle session clearing BEFORE any output
+if(isset($_GET['clear_reset'])) {
+    unset($_SESSION['forgot_email']);
+    unset($_SESSION['otp_verified']);
+    unset($_SESSION['reset_step']);
+    header("Location: login.php");
+    ob_end_flush();
+    exit();
+}
+
 include 'dbconnect.php';
 
-// Convert to PDO for consistency
+// Import PHPMailer classes
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
+require 'PHPMailer/src/Exception.php';
+require 'PHPMailer/src/PHPMailer.php';
+require 'PHPMailer/src/SMTP.php';
+
+// Database connection
 try {
     $pdo = new PDO("mysql:host=localhost;dbname=pikkit", "root", "");
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -13,6 +35,62 @@ try {
 $error = '';
 $success = '';
 $showOtpForm = false;
+$showResetForm = false;
+
+// Function to validate Gmail address
+function isValidGmail($email) {
+    $email = strtolower(trim($email));
+    return preg_match('/^[a-z0-9._%+-]+@gmail\.com$/i', $email);
+}
+
+// Function to send OTP via Gmail SMTP
+function sendOtpEmail($to_email, $otp) {
+    $mail = new PHPMailer(true);
+    
+    try {
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = 'pikkitg1@gmail.com';
+        $mail->Password   = 'mpnp zomu oucy cgpz';
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = 587;
+        
+        $mail->setFrom('pikkitg1@gmail.com', 'Pikkit');
+        $mail->addAddress($to_email);
+        
+        $mail->isHTML(true);
+        $mail->Subject = 'Pikkit - Password Reset OTP';
+        $mail->Body    = '
+            <html>
+            <body style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <h1 style="color: #333; margin: 0;">Pikkit</h1>
+                    </div>
+                    <h2 style="color: #333; text-align: center;">Password Reset Request</h2>
+                    <p style="color: #666; font-size: 16px;">Hello,</p>
+                    <p style="color: #666; font-size: 16px;">You requested to reset your password. Please use the following OTP to complete the process:</p>
+                    <div style="background-color: #f0f0f0; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
+                        <h1 style="color: #333; letter-spacing: 5px; margin: 0; font-size: 32px;">' . $otp . '</h1>
+                    </div>
+                    <p style="color: #666; font-size: 14px;"><strong>⏰ This OTP will expire in 15 minutes.</strong></p>
+                    <p style="color: #666; font-size: 14px;">If you did not request a password reset, please ignore this email and your password will remain unchanged.</p>
+                    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+                    <p style="color: #999; font-size: 12px; text-align: center;">This is an automated message from Pikkit. Please do not reply to this email.</p>
+                </div>
+            </body>
+            </html>
+        ';
+        $mail->AltBody = "Your OTP for password reset is: $otp\n\nThis OTP will expire in 15 minutes.\n\nIf you did not request this, please ignore this email.";
+        
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        error_log("Mailer Error: {$mail->ErrorInfo}");
+        return false;
+    }
+}
 
 // Handle manual login
 if(isset($_POST['manual_login'])) {
@@ -22,6 +100,8 @@ if(isset($_POST['manual_login'])) {
     
     if(empty($username) || empty($email) || empty($pass)) {
         $error = "Please fill in all fields";
+    } elseif(!isValidGmail($email)) {
+        $error = "Please use a valid Gmail address (@gmail.com)";
     } else {
         $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND name = ?");
         $stmt->execute([$email, $username]);
@@ -32,6 +112,7 @@ if(isset($_POST['manual_login'])) {
             $_SESSION['user_name'] = $user['name'];
             $_SESSION['user_email'] = $user['email'];
             header("Location: index.php");
+            ob_end_flush();
             exit();
         } else {
             $error = "Invalid username, email or password";
@@ -39,79 +120,178 @@ if(isset($_POST['manual_login'])) {
     }
 }
 
-// Handle forgot password - send OTP
+// STEP 1: Send OTP
 if(isset($_POST['send_otp'])) {
     $email = trim($_POST['forgot_email']);
     
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if($user) {
-        // Generate 6-digit OTP
-        $otp = rand(100000, 999999);
-        $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-        
-        // Store OTP in database
-        $stmt = $pdo->prepare("INSERT INTO otp_codes (email, otp, expiry) VALUES (?, ?, ?) 
-                              ON DUPLICATE KEY UPDATE otp = ?, expiry = ?");
-        $stmt->execute([$email, $otp, $expiry, $otp, $expiry]);
-        
-        // Send email (using PHP mail function)
-        $subject = "Pikkit - Password Reset OTP";
-        $message = "Your OTP for password reset is: $otp\n\nThis OTP will expire in 15 minutes.";
-        $headers = "From: noreply@pikkit.com";
-        
-        if(mail($email, $subject, $message, $headers)) {
-            $_SESSION['forgot_email'] = $email;
-            $showOtpForm = true;
-            $success = "OTP sent to your email!";
-        } else {
-            $error = "Failed to send OTP. Please try again.";
-        }
+    if(!isValidGmail($email)) {
+        $error = "Please use a valid Gmail address (@gmail.com)";
     } else {
-        $error = "Email not found";
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if($user) {
+            $otp = (string)rand(100000, 999999);
+            $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+            
+            // Delete any existing OTPs for this email first
+            $stmt = $pdo->prepare("DELETE FROM otp_codes WHERE email = ?");
+            $stmt->execute([$email]);
+            
+            // Insert new OTP
+            $stmt = $pdo->prepare("INSERT INTO otp_codes (email, otp, expiry) VALUES (?, ?, ?)");
+            $stmt->execute([$email, $otp, $expiry]);
+            
+            if(sendOtpEmail($email, $otp)) {
+                $_SESSION['forgot_email'] = $email;
+                $_SESSION['reset_step'] = 'otp';
+                unset($_SESSION['otp_verified']);
+                $showOtpForm = true;
+                $success = "OTP sent successfully! Please check your Gmail inbox.";
+            } else {
+                $error = "Failed to send OTP. Please check your email configuration and try again.";
+            }
+        } else {
+            $error = "Email not found in our system";
+        }
     }
 }
 
-// Verify OTP and login
+// STEP 2: Verify OTP
+// STEP 2: Verify OTP
 if(isset($_POST['verify_otp'])) {
     $email = $_SESSION['forgot_email'] ?? '';
-    $entered_otp = trim($_POST['otp']);
+    $entered_otp = preg_replace('/\s+/', '', trim($_POST['otp']));
     
-    if(!empty($email)) {
+    if(empty($email)) {
+        $error = "Session expired. Please start over.";
+        unset($_SESSION['forgot_email']);
+        unset($_SESSION['reset_step']);
+    } elseif(empty($entered_otp) || strlen($entered_otp) != 6) {
+        $error = "Please enter a valid 6-digit OTP.";
+        $_SESSION['reset_step'] = 'otp';
+        $showOtpForm = true;
+    } else {
         $stmt = $pdo->prepare("SELECT * FROM otp_codes WHERE email = ? AND otp = ? AND expiry > NOW()");
         $stmt->execute([$email, $entered_otp]);
         $otp_record = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if($otp_record) {
-            // Get user details
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
-            $stmt->execute([$email]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            // Delete used OTP
-            $stmt = $pdo->prepare("DELETE FROM otp_codes WHERE email = ?");
-            $stmt->execute([$email]);
-            
-            // Log user in
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['user_name'] = $user['name'];
-            $_SESSION['user_email'] = $user['email'];
-            unset($_SESSION['forgot_email']);
-            
-            header("Location: index.php");
-            exit();
+            // OTP is valid - SET THESE BEFORE REDIRECT
+            $_SESSION['otp_verified'] = true;
+            $_SESSION['reset_step'] = 'password';
+            $success = "OTP verified! Please create your new password.";
+            $showResetForm = true; // SHOW RESET FORM DIRECTLY
+            // DON'T REDIRECT - just show the form
         } else {
-            $error = "Invalid or expired OTP";
+            // Check if OTP exists but is expired
+            $stmt = $pdo->prepare("SELECT * FROM otp_codes WHERE email = ? AND otp = ?");
+            $stmt->execute([$email, $entered_otp]);
+            $expired_record = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if($expired_record) {
+                $error = "OTP has expired. Please request a new one.";
+            } else {
+                $error = "Invalid OTP. Please check and try again.";
+            }
+            $_SESSION['reset_step'] = 'otp';
             $showOtpForm = true;
         }
     }
 }
 
-// Check if showing OTP form from session
-if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
-    $showOtpForm = true;
+// STEP 3: Reset password
+if(isset($_POST['reset_password'])) {
+    $email = $_SESSION['forgot_email'] ?? '';
+    $new_password = $_POST['new_password'];
+    $confirm_password = $_POST['confirm_password'];
+    
+    if(!isset($_SESSION['otp_verified']) || !$_SESSION['otp_verified']) {
+        $error = "Please verify OTP first";
+        $_SESSION['reset_step'] = 'otp';
+        $showOtpForm = true;
+    } elseif(empty($email)) {
+        $error = "Session expired. Please start over.";
+        unset($_SESSION['forgot_email']);
+        unset($_SESSION['reset_step']);
+        unset($_SESSION['otp_verified']);
+    } elseif(empty($new_password) || empty($confirm_password)) {
+        $error = "Please fill in all fields";
+        $showResetForm = true;
+    } elseif(strlen($new_password) < 6) {
+        $error = "Password must be at least 6 characters";
+        $showResetForm = true;
+    } elseif($new_password !== $confirm_password) {
+        $error = "Passwords do not match";
+        $showResetForm = true;
+    } else {
+        // Update password in database
+        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+        $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE email = ?");
+        
+        if($stmt->execute([$hashed_password, $email])) {
+            // Delete used OTP
+            $stmt = $pdo->prepare("DELETE FROM otp_codes WHERE email = ?");
+            $stmt->execute([$email]);
+            
+            // Get user details and log them in
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if($user) {
+                // Clear reset session variables
+                unset($_SESSION['forgot_email']);
+                unset($_SESSION['otp_verified']);
+                unset($_SESSION['reset_step']);
+                
+                // Log user in automatically
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_name'] = $user['name'];
+                $_SESSION['user_email'] = $user['email'];
+                
+                // Redirect to index.php
+                header("Location: index.php");
+                ob_end_flush();
+                exit();
+            } else {
+                $error = "Error logging in. Please try logging in manually.";
+            }
+        } else {
+            $error = "Failed to update password. Please try again.";
+            $showResetForm = true;
+        }
+    }
+}
+
+// Determine which form to show based on session state
+if(isset($_SESSION['forgot_email']) && !$showOtpForm && !$showResetForm) {
+    $step = $_SESSION['reset_step'] ?? 'email';
+    
+    if($step === 'password' && isset($_SESSION['otp_verified']) && $_SESSION['otp_verified']) {
+        $showResetForm = true;
+    } elseif($step === 'otp') {
+        $showOtpForm = true;
+    }
+}
+
+// Handle URL parameter for step (after redirect)
+// You can remove this entire section or simplify it:
+// Handle URL parameter for step (after redirect)
+if(isset($_GET['step']) && $_GET['step'] === 'reset') {
+    if(isset($_SESSION['otp_verified']) && $_SESSION['otp_verified'] && isset($_SESSION['forgot_email'])) {
+        $showResetForm = true;
+        $success = "OTP verified! Please create your new password.";
+    } else {
+        // Session expired or tampered, restart process
+        unset($_SESSION['forgot_email']);
+        unset($_SESSION['otp_verified']);
+        unset($_SESSION['reset_step']);
+        header("Location: login.php");
+        ob_end_flush();
+        exit();
+    }
 }
 ?>
 
@@ -166,10 +346,22 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
         }
         
         .alert {
-            padding: 8px;
+            padding: 10px 12px;
             border-radius: 5px;
-            margin-bottom: 12px;
+            margin-bottom: 15px;
             font-size: 13px;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         .alert-error {
@@ -198,7 +390,7 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
         
         .form-group input {
             width: 100%;
-            padding: 9px 12px;
+            padding: 10px 12px;
             border: 1px solid #ddd;
             border-radius: 5px;
             font-size: 14px;
@@ -210,9 +402,22 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
             border-color: #333;
         }
         
+        .gmail-hint {
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .gmail-hint::before {
+            content: "ℹ️";
+        }
+        
         .btn {
             width: 100%;
-            padding: 10px;
+            padding: 11px;
             border: none;
             border-radius: 5px;
             font-size: 14px;
@@ -228,6 +433,12 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
         
         .btn-primary:hover {
             background: #000;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
         }
         
         .divider {
@@ -256,23 +467,10 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
         
         .google-btn {
             width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background: white;
-            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-        
-        .google-btn:hover {
-            border-color: #333;
-            background: #f9f9f9;
+            min-height: 40px;
         }
         
         .forgot-password {
@@ -321,6 +519,12 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
             z-index: 1000;
             justify-content: center;
             align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         
         .modal.active {
@@ -333,6 +537,18 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
             border-radius: 10px;
             max-width: 400px;
             width: 90%;
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         .modal-header {
@@ -347,11 +563,54 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
         .close-modal {
             background: #f0f0f0;
             color: #666;
-            margin-top: 15px;
+            margin-top: 10px;
         }
         
         .close-modal:hover {
             background: #e0e0e0;
+        }
+        
+        .otp-input {
+            text-align: center;
+            font-size: 24px;
+            letter-spacing: 10px;
+            font-weight: bold;
+        }
+
+        .password-strength {
+            font-size: 11px;
+            margin-top: 4px;
+            color: #666;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .step {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #999;
+        }
+
+        .step.active {
+            background: #333;
+            color: white;
+        }
+
+        .step.completed {
+            background: #3c3;
+            color: white;
         }
     </style>
 </head>
@@ -373,18 +632,11 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
         <!-- Google Sign In -->
         <div id="g_id_onload"
              data-client_id="863511518630-t4oj6ktd9net7g1pj9a8etrot6ict9md.apps.googleusercontent.com"
-             data-callback="handleCredentialResponse">
+             data-callback="handleCredentialResponse"
+             data-auto_prompt="false">
         </div>
         
-        <button class="google-btn" onclick="googleSignIn()">
-            <svg width="20" height="20" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            Continue with Google
-        </button>
+        <div class="google-btn" id="googleSignInDiv"></div>
         
         <div class="divider">
             <span>OR</span>
@@ -398,8 +650,9 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
             </div>
             
             <div class="form-group">
-                <label for="email">Email Address</label>
-                <input type="email" id="email" name="email" required>
+                <label for="email">Gmail Address</label>
+                <input type="email" id="email" name="email" placeholder="yourname@gmail.com" required>
+                <div class="gmail-hint">Only Gmail addresses (@gmail.com) are accepted</div>
             </div>
             
             <div class="form-group">
@@ -420,28 +673,64 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
     </div>
     
     <!-- Forgot Password Modal -->
-    <div id="forgotModal" class="modal <?php echo $showOtpForm ? 'active' : ''; ?>">
+    <div id="forgotModal" class="modal <?php echo ($showOtpForm || $showResetForm) ? 'active' : ''; ?>">
         <div class="modal-content">
+            <!-- Step Indicator -->
+            <div class="step-indicator">
+                <div class="step <?php echo (!$showOtpForm && !$showResetForm) ? 'active' : 'completed'; ?>">1</div>
+                <div class="step <?php echo $showOtpForm ? 'active' : ($showResetForm ? 'completed' : ''); ?>">2</div>
+                <div class="step <?php echo $showResetForm ? 'active' : ''; ?>">3</div>
+            </div>
+
             <div class="modal-header">
-                <h2><?php echo $showOtpForm ? 'Enter OTP' : 'Forgot Password'; ?></h2>
+                <h2>
+                    <?php 
+                        if($showResetForm) {
+                            echo 'Create New Password';
+                        } elseif($showOtpForm) {
+                            echo 'Enter OTP';
+                        } else {
+                            echo 'Forgot Password';
+                        }
+                    ?>
+                </h2>
             </div>
             
-            <?php if(!$showOtpForm): ?>
+            <?php if($showResetForm): ?>
+                <!-- PASSWORD RESET FORM -->
                 <form method="POST" action="">
                     <div class="form-group">
-                        <label for="forgot_email">Enter your email address</label>
-                        <input type="email" id="forgot_email" name="forgot_email" required>
+                        <label for="new_password">New Password</label>
+                        <input type="password" id="new_password" name="new_password" minlength="6" required>
+                        <div class="password-strength">Must be at least 6 characters</div>
                     </div>
-                    <button type="submit" name="send_otp" class="btn btn-primary">Send OTP</button>
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm New Password</label>
+                        <input type="password" id="confirm_password" name="confirm_password" minlength="6" required>
+                    </div>
+                    <button type="submit" name="reset_password" class="btn btn-primary">Reset Password & Login</button>
                     <button type="button" class="btn close-modal" onclick="closeForgotModal()">Cancel</button>
                 </form>
-            <?php else: ?>
+            <?php elseif($showOtpForm): ?>
+                <!-- OTP FORM -->
                 <form method="POST" action="">
                     <div class="form-group">
                         <label for="otp">Enter 6-digit OTP</label>
-                        <input type="text" id="otp" name="otp" maxlength="6" pattern="[0-9]{6}" required>
+                        <input type="text" id="otp" name="otp" class="otp-input" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required>
+                        <div class="gmail-hint">Check your Gmail inbox for the OTP code (expires in 15 minutes)</div>
                     </div>
                     <button type="submit" name="verify_otp" class="btn btn-primary">Verify OTP</button>
+                    <button type="button" class="btn close-modal" onclick="closeForgotModal()">Cancel</button>
+                </form>
+            <?php else: ?>
+                <!-- EMAIL FORM -->
+                <form method="POST" action="">
+                    <div class="form-group">
+                        <label for="forgot_email">Enter your Gmail address</label>
+                        <input type="email" id="forgot_email" name="forgot_email" placeholder="yourname@gmail.com" required>
+                        <div class="gmail-hint">Only Gmail addresses (@gmail.com) are accepted</div>
+                    </div>
+                    <button type="submit" name="send_otp" class="btn btn-primary">Send OTP</button>
                     <button type="button" class="btn close-modal" onclick="closeForgotModal()">Cancel</button>
                 </form>
             <?php endif; ?>
@@ -454,27 +743,22 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
         }
         
         function closeForgotModal() {
-            document.getElementById('forgotModal').classList.remove('active');
-            window.location.href = 'login.php';
+            // Clear session by redirecting
+            window.location.href = 'login.php?clear_reset=1';
         }
         
         function handleCredentialResponse(response) {
-            // Send the ID token to your server
             fetch('google_auth.php', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    credential: response.credential
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential: response.credential })
             })
             .then(res => res.json())
             .then(data => {
                 if(data.success) {
                     window.location.href = 'index.php';
                 } else {
-                    alert('Google login failed. Please try again.');
+                    alert('Google login failed: ' + (data.message || 'Please try again.'));
                 }
             })
             .catch(error => {
@@ -483,16 +767,86 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm) {
             });
         }
         
-        function googleSignIn() {
-            google.accounts.id.prompt();
-        }
+        window.onload = function() {
+            const initGoogle = () => {
+                if (typeof google !== 'undefined' && google.accounts) {
+                    google.accounts.id.initialize({
+                        client_id: '863511518630-t4oj6ktd9net7g1pj9a8etrot6ict9md.apps.googleusercontent.com',
+                        callback: handleCredentialResponse
+                    });
+                    
+                    google.accounts.id.renderButton(
+                        document.getElementById('googleSignInDiv'),
+                        { theme: 'outline', size: 'large', width: 400, text: 'continue_with' }
+                    );
+                } else {
+                    setTimeout(initGoogle, 100);
+                }
+            };
+            initGoogle();
+        };
 
         // Close modal when clicking outside
         document.getElementById('forgotModal').addEventListener('click', function(e) {
-            if(e.target === this) {
-                closeForgotModal();
+            if(e.target === this) closeForgotModal();
+        });
+        
+        // Email validation
+        document.getElementById('email').addEventListener('blur', function() {
+            const email = this.value.toLowerCase().trim();
+            if(email && !email.endsWith('@gmail.com')) {
+                alert('⚠️ Please use a Gmail address (@gmail.com)');
+                this.focus();
             }
         });
+        
+        // Forgot email validation
+        if(document.getElementById('forgot_email')) {
+            document.getElementById('forgot_email').addEventListener('blur', function() {
+                const email = this.value.toLowerCase().trim();
+                if(email && !email.endsWith('@gmail.com')) {
+                    alert('⚠️ Please use a Gmail address (@gmail.com)');
+                    this.focus();
+                }
+            });
+        }
+        
+        // OTP input validation
+        if(document.getElementById('otp')) {
+            const otpInput = document.getElementById('otp');
+            
+            otpInput.addEventListener('input', function(e) {
+                // Remove all non-numeric characters and spaces
+                this.value = this.value.replace(/[^0-9]/g, '');
+                
+                // Limit to 6 digits
+                if(this.value.length > 6) {
+                    this.value = this.value.slice(0, 6);
+                }
+            });
+            
+            otpInput.addEventListener('focus', function() {
+                this.style.letterSpacing = '5px';
+            });
+        }
+
+        // Password confirmation validation
+        if(document.getElementById('confirm_password')) {
+            document.getElementById('confirm_password').addEventListener('input', function() {
+                const newPass = document.getElementById('new_password').value;
+                const confirmPass = this.value;
+                
+                if(confirmPass && newPass !== confirmPass) {
+                    this.setCustomValidity('Passwords do not match');
+                } else {
+                    this.setCustomValidity('');
+                }
+            });
+        }
     </script>
 </body>
 </html>
+<?php
+// Flush output buffer at the end
+ob_end_flush();
+?>
