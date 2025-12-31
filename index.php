@@ -85,7 +85,8 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pikkit - Shop Everything You Need</title>
+    <title>PikKiT - Shop Everything You Need</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -93,68 +94,73 @@ try {
             box-sizing: border-box;
         }
         
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #fafafa;
-            min-height: 100vh;
-            color: #1a1a1a;
+        :root {
+            --primary-pink: #FFB6D9;
+            --primary-pink-dark: #FF8FB8;
+            --accent-pink: #FF6B9D;
+            --secondary-gray: #2C2C2C;
+            --light-gray: #F8F9FA;
+            --border-color: #E8E8E8;
+            --white: #FFFFFF;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.1);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.15);
+            --shadow-panel: 4px 0 24px rgba(0,0,0,0.08);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
         
-        /* Header Styles */
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--light-gray);
+            min-height: 100vh;
+            color: var(--secondary-gray);
+        }
+        
+        /* ===== HEADER STYLES ===== */
         .header {
-            background: linear-gradient(135deg, #FFB6C1 0%, #FFA0B4 100%);
-            padding: 16px 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            background: var(--white);
+            padding: 0;
+            box-shadow: var(--shadow-sm);
             position: sticky;
             top: 0;
-            z-index: 100;
-            backdrop-filter: blur(10px);
+            z-index: 1000;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .header-content {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
-            padding: 0 24px;
+            padding: 16px 32px;
             display: flex;
             align-items: center;
-            gap: 24px;
+            gap: 32px;
         }
         
         .logo {
-            font-size: 28px;
-            font-weight: 700;
-            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary-pink) 0%, var(--accent-pink) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             text-decoration: none;
-            letter-spacing: -0.5px;
-            transition: transform 0.2s;
+            letter-spacing: -1.5px;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .logo:hover {
             transform: scale(1.05);
-        }
-        
-        .menu-toggle {
-            display: none;
-            background: white;
-            color: #333;
-            border: none;
-            padding: 10px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: all 0.2s;
-        }
-        
-        .menu-toggle:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            filter: brightness(1.1);
         }
         
         .search-container {
             flex: 1;
             max-width: 600px;
-            position: relative;
         }
         
         .search-form {
@@ -165,62 +171,67 @@ try {
         
         .search-input {
             width: 100%;
-            padding: 12px 120px 12px 48px;
-            border: none;
-            border-radius: 24px;
+            padding: 14px 140px 14px 20px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
             font-size: 15px;
             outline: none;
-            background: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: all 0.3s;
+            background: var(--white);
+            transition: var(--transition);
+            font-family: inherit;
         }
         
         .search-input:focus {
-            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-            transform: translateY(-1px);
+            border-color: var(--primary-pink);
+            box-shadow: 0 0 0 4px rgba(255, 182, 217, 0.15);
         }
         
-        .search-icon {
-            position: absolute;
-            left: 16px;
+        .search-input::placeholder {
             color: #999;
-            font-size: 18px;
-            pointer-events: none;
-        }
-        
-        .search-btn {
-            position: absolute;
-            right: 6px;
-            background: #333;
-            color: white;
-            border: none;
-            padding: 8px 24px;
-            border-radius: 18px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-        
-        .search-btn:hover {
-            background: #000;
-            transform: scale(1.02);
         }
         
         .clear-search {
             position: absolute;
-            right: 110px;
+            right: 130px;
             background: transparent;
             border: none;
             color: #999;
             cursor: pointer;
             font-size: 18px;
-            padding: 4px 8px;
+            padding: 4px 10px;
             display: none;
+            transition: var(--transition);
+            border-radius: 6px;
+        }
+        
+        .clear-search:hover {
+            color: var(--secondary-gray);
+            background: var(--light-gray);
         }
         
         .clear-search.show {
             display: block;
+        }
+        
+        .search-btn {
+            position: absolute;
+            right: 6px;
+            background: linear-gradient(135deg, var(--primary-pink) 0%, var(--accent-pink) 100%);
+            color: white;
+            border: none;
+            padding: 10px 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: var(--transition);
+            font-family: inherit;
+            box-shadow: 0 2px 8px rgba(255, 107, 157, 0.3);
+        }
+        
+        .search-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
         }
         
         .header-actions {
@@ -230,39 +241,41 @@ try {
         }
         
         .btn {
-            padding: 10px 24px;
-            border: none;
-            border-radius: 8px;
+            padding: 11px 24px;
+            border: 2px solid transparent;
+            border-radius: 10px;
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             text-decoration: none;
-            transition: all 0.2s;
+            transition: var(--transition);
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            font-family: inherit;
         }
         
         .btn-login {
-            background: white;
-            color: #333;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: transparent;
+            color: var(--secondary-gray);
+            border-color: var(--border-color);
         }
         
         .btn-login:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            border-color: var(--primary-pink);
+            color: var(--accent-pink);
+            background: rgba(255, 182, 217, 0.05);
         }
         
         .btn-signup {
-            background: #333;
+            background: var(--secondary-gray);
             color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         
         .btn-signup:hover {
             background: #000;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
         
         .user-menu {
@@ -270,46 +283,48 @@ try {
         }
         
         .user-btn {
-            background: white;
-            color: #333;
+            background: var(--white);
+            color: var(--secondary-gray);
             padding: 10px 18px;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 10px;
             font-weight: 600;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: all 0.2s;
+            transition: var(--transition);
+            border: 2px solid var(--border-color);
         }
         
         .user-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            border-color: var(--primary-pink);
+            background: rgba(255, 182, 217, 0.05);
         }
         
         .user-avatar {
-            width: 32px;
-            height: 32px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #FFB6C1, #FFA0B4);
+            background: linear-gradient(135deg, var(--primary-pink), var(--accent-pink));
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 16px;
+            box-shadow: 0 2px 8px rgba(255, 107, 157, 0.3);
         }
         
         .user-dropdown {
             display: none;
             position: absolute;
-            top: calc(100% + 8px);
+            top: calc(100% + 10px);
             right: 0;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-            min-width: 220px;
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            min-width: 240px;
             overflow: hidden;
-            animation: slideDown 0.2s ease;
+            animation: slideDown 0.3s ease;
+            border: 1px solid var(--border-color);
         }
         
         @keyframes slideDown {
@@ -332,15 +347,16 @@ try {
             align-items: center;
             gap: 12px;
             padding: 14px 20px;
-            color: #333;
+            color: var(--secondary-gray);
             text-decoration: none;
-            border-bottom: 1px solid #f0f0f0;
-            transition: all 0.2s;
+            border-bottom: 1px solid var(--border-color);
+            transition: var(--transition);
+            font-weight: 500;
         }
         
         .user-dropdown a:hover {
-            background: #fafafa;
-            padding-left: 24px;
+            background: var(--light-gray);
+            padding-left: 26px;
         }
         
         .user-dropdown a:last-child {
@@ -348,215 +364,275 @@ try {
             color: #dc3545;
         }
         
-        /* Main Container */
+        /* ===== MAIN LAYOUT ===== */
         .main-container {
             display: flex;
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
-            min-height: calc(100vh - 80px);
             position: relative;
         }
         
-        /* Sidebar */
-        .sidebar {
+        /* ===== SIDE PANEL STYLES ===== */
+        .side-panel {
+            position: fixed;
+            left: 0;
+            top: 0;
             width: 280px;
-            background: white;
-            padding: 24px;
-            height: calc(100vh - 80px);
-            position: sticky;
-            top: 80px;
-            overflow-y: auto;
-            box-shadow: 2px 0 12px rgba(0,0,0,0.04);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border-right: 1px solid #f0f0f0;
+            height: 100vh;
+            background: linear-gradient(180deg, #FFB6D9 0%, #FF8FB8 100%);
+            z-index: 1001;
+            transform: translateX(-100%);
+            transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: var(--shadow-panel);
+            display: flex;
+            flex-direction: column;
         }
         
-        .sidebar::-webkit-scrollbar {
-            width: 6px;
+        .side-panel.active {
+            transform: translateX(0);
         }
         
-        .sidebar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        
-        .sidebar::-webkit-scrollbar-thumb {
-            background: #ddd;
-            border-radius: 3px;
-        }
-        
-        .sidebar::-webkit-scrollbar-thumb:hover {
-            background: #bbb;
-        }
-        
-        .sidebar-header {
+        .panel-header {
+            padding: 24px 28px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
-            padding-bottom: 16px;
-            border-bottom: 2px solid #f5f5f5;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         }
         
-        .sidebar-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: #1a1a1a;
-            letter-spacing: -0.3px;
+        .panel-logo {
+            font-family: 'Outfit', sans-serif;
+            font-size: 36px;
+            font-weight: 900;
+            color: white;
+            letter-spacing: -2px;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
-        .close-sidebar {
-            display: none;
-            background: #f5f5f5;
+        .panel-close {
+            background: rgba(255, 255, 255, 0.2);
             border: none;
+            color: white;
             font-size: 24px;
             cursor: pointer;
-            color: #666;
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            transition: all 0.2s;
-        }
-        
-        .close-sidebar:hover {
-            background: #e8e8e8;
-            transform: rotate(90deg);
-        }
-        
-        .sell-btn {
-            background: linear-gradient(135deg, #FFB6C1, #FFA0B4);
-            color: white;
-            padding: 14px 20px;
-            border: none;
+            width: 40px;
+            height: 40px;
             border-radius: 12px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            margin-bottom: 24px;
-            transition: all 0.3s;
-            box-shadow: 0 4px 12px rgba(255, 182, 193, 0.3);
+            transition: var(--transition);
+            backdrop-filter: blur(10px);
         }
         
-        .sell-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 182, 193, 0.4);
+        .panel-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
         }
         
-        .pockets-section {
-            margin-top: 20px;
+        .panel-content {
+            flex: 1;
+            padding: 32px 28px;
+            overflow-y: auto;
         }
         
-        .section-title {
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .panel-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .panel-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+        
+        .panel-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        .panel-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-bottom: 32px;
+        }
+        
+        .panel-btn {
+            background: rgba(255, 255, 255, 0.95);
+            color: var(--secondary-gray);
+            padding: 16px 24px;
+            border: none;
+            border-radius: 14px;
             font-size: 15px;
             font-weight: 700;
-            color: #1a1a1a;
-            margin-bottom: 16px;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
-            letter-spacing: -0.2px;
+            gap: 12px;
+            transition: var(--transition-bounce);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            font-family: inherit;
+            text-decoration: none;
+            justify-content: flex-start;
+            backdrop-filter: blur(10px);
+        }
+        
+        .panel-btn:hover {
+            transform: translateX(8px) scale(1.02);
+            box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+            background: white;
+        }
+        
+        .panel-btn-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--primary-pink), var(--accent-pink));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        
+        .panel-section {
+            margin-top: 24px;
+        }
+        
+        .panel-section-title {
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            opacity: 0.9;
         }
         
         .create-pocket-form {
             margin-bottom: 20px;
-            padding: 16px;
-            background: #fafafa;
-            border-radius: 12px;
-            border: 1px solid #f0f0f0;
+            padding: 18px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            transition: var(--transition);
+            backdrop-filter: blur(10px);
+        }
+        
+        .create-pocket-form:hover {
+            border-color: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.2);
         }
         
         .pocket-input {
             width: 100%;
-            padding: 12px 14px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
+            padding: 14px 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
             font-size: 14px;
             margin-bottom: 12px;
-            transition: all 0.2s;
+            transition: var(--transition);
+            font-family: inherit;
+            background: rgba(255, 255, 255, 0.9);
+            color: var(--secondary-gray);
         }
         
         .pocket-input:focus {
             outline: none;
-            border-color: #FFB6C1;
+            border-color: white;
             background: white;
-            box-shadow: 0 0 0 3px rgba(255, 182, 193, 0.1);
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2);
+        }
+        
+        .pocket-input::placeholder {
+            color: #999;
         }
         
         .create-btn {
             width: 100%;
-            padding: 11px;
-            background: #333;
-            color: white;
+            padding: 13px;
+            background: rgba(255, 255, 255, 0.95);
+            color: var(--secondary-gray);
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: var(--transition);
+            font-family: inherit;
         }
         
         .create-btn:hover {
-            background: #000;
-            transform: translateY(-1px);
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         
         .pockets-list {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
         }
         
         .pocket-item {
-            padding: 12px 14px;
-            background: #fafafa;
-            border-radius: 10px;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
             display: flex;
             align-items: center;
             gap: 12px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: var(--transition);
             text-decoration: none;
-            color: #333;
-            border: 1px solid transparent;
+            color: white;
+            border: 2px solid transparent;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
         }
         
         .pocket-item:hover {
-            background: linear-gradient(135deg, #FFB6C1, #FFA0B4);
-            color: white;
-            transform: translateX(4px);
-            border-color: rgba(255, 182, 193, 0.3);
-            box-shadow: 0 2px 8px rgba(255, 182, 193, 0.3);
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateX(8px);
+            border-color: rgba(255, 255, 255, 0.3);
         }
         
         .pocket-icon {
-            font-size: 18px;
+            font-size: 20px;
         }
         
         .pocket-name {
             flex: 1;
             font-size: 14px;
-            font-weight: 500;
         }
         
         .empty-pockets {
             text-align: center;
-            padding: 32px 16px;
-            color: #999;
+            padding: 32px 20px;
+            color: white;
             font-size: 14px;
-            line-height: 1.6;
+            line-height: 1.8;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .empty-pockets-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.7;
         }
         
         .alert {
-            padding: 12px 16px;
-            border-radius: 10px;
-            margin-bottom: 16px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 18px;
             font-size: 13px;
-            font-weight: 500;
-            border: 1px solid;
+            font-weight: 600;
+            border: 2px solid;
             animation: slideIn 0.3s ease;
         }
         
@@ -572,90 +648,162 @@ try {
         }
         
         .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border-color: #c3e6cb;
+            background: rgba(255, 255, 255, 0.25);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(10px);
         }
         
         .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border-color: #f5c6cb;
+            background: rgba(220, 53, 69, 0.15);
+            color: white;
+            border-color: rgba(220, 53, 69, 0.3);
+            backdrop-filter: blur(10px);
         }
         
         .login-prompt {
-            padding: 16px;
-            background: linear-gradient(135deg, #fff3cd, #ffe8a1);
-            border-radius: 12px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
             text-align: center;
             font-size: 14px;
-            color: #856404;
-            margin-bottom: 20px;
-            border: 1px solid #ffeaa7;
+            color: white;
+            margin-bottom: 24px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            line-height: 1.6;
+            backdrop-filter: blur(10px);
+            font-weight: 600;
         }
         
         .login-prompt a {
-            color: #333;
-            font-weight: 700;
+            color: white;
+            font-weight: 800;
             text-decoration: none;
-            border-bottom: 2px solid #333;
+            border-bottom: 2px solid white;
+            transition: var(--transition);
+            padding-bottom: 2px;
         }
         
-        /* Products Section */
+        .login-prompt a:hover {
+            opacity: 0.8;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Panel Toggle Button */
+        .panel-toggle {
+            position: fixed;
+            left: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, var(--primary-pink) 0%, var(--accent-pink) 100%);
+            color: white;
+            border: none;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            box-shadow: 0 4px 20px rgba(255, 107, 157, 0.4);
+            transition: var(--transition-bounce);
+        }
+        
+        .panel-toggle:hover {
+            transform: translateY(-50%) scale(1.1);
+            box-shadow: 0 6px 28px rgba(255, 107, 157, 0.5);
+        }
+        
+        .panel-toggle.active {
+            left: 304px;
+        }
+        
+        /* Panel Overlay */
+        .panel-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .panel-overlay.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* ===== PRODUCTS SECTION ===== */
         .products-section {
             flex: 1;
-            padding: 32px;
-            background: #fafafa;
+            padding: 40px 32px;
+            background: var(--light-gray);
+            transition: var(--transition);
+        }
+        
+        .products-section.shifted {
+            margin-left: 280px;
         }
         
         .products-header {
-            margin-bottom: 28px;
+            margin-bottom: 32px;
         }
         
         .products-header h2 {
-            color: #1a1a1a;
-            font-size: 28px;
-            margin-bottom: 8px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
+            color: var(--secondary-gray);
+            font-family: 'Outfit', sans-serif;
+            font-size: 36px;
+            margin-bottom: 10px;
+            font-weight: 800;
+            letter-spacing: -1.5px;
         }
         
         .results-info {
             color: #666;
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 500;
         }
         
         .products-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 28px;
         }
         
         .product-card {
             background: white;
-            border-radius: 16px;
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
             cursor: pointer;
             text-decoration: none;
             color: inherit;
             display: block;
-            border: 1px solid #f0f0f0;
+            border: 2px solid transparent;
         }
         
         .product-card:hover {
             transform: translateY(-8px);
-            box-shadow: 0 12px 32px rgba(0,0,0,0.12);
-            border-color: #FFB6C1;
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-pink);
         }
         
         .product-image {
             width: 100%;
-            height: 220px;
+            height: 280px;
             object-fit: cover;
-            background: linear-gradient(135deg, #f5f5f5, #e8e8e8);
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -667,112 +815,76 @@ try {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: transform 0.3s;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .product-card:hover .product-image img {
-            transform: scale(1.05);
+            transform: scale(1.1);
         }
         
         .product-info {
-            padding: 18px;
+            padding: 20px;
         }
         
         .product-name {
             font-weight: 600;
-            color: #1a1a1a;
-            margin-bottom: 10px;
-            font-size: 15px;
+            color: var(--secondary-gray);
+            margin-bottom: 12px;
+            font-size: 16px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
-            line-height: 1.4;
-            min-height: 42px;
+            line-height: 1.5;
+            min-height: 48px;
         }
         
         .product-price {
-            color: #FF6347;
-            font-size: 20px;
-            font-weight: 700;
-            letter-spacing: -0.3px;
+            color: var(--accent-pink);
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
         }
         
         .no-products {
             text-align: center;
-            padding: 80px 20px;
+            padding: 100px 20px;
             color: #666;
         }
         
         .no-products-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-            opacity: 0.5;
+            font-size: 80px;
+            margin-bottom: 20px;
+            opacity: 0.4;
         }
         
         .no-products h3 {
-            font-size: 24px;
-            margin-bottom: 12px;
-            color: #333;
+            font-size: 28px;
+            margin-bottom: 14px;
+            color: var(--secondary-gray);
             font-weight: 700;
         }
         
         .no-products p {
-            font-size: 15px;
+            font-size: 16px;
             color: #999;
         }
         
-        /* Overlay for mobile */
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 98;
-            backdrop-filter: blur(4px);
-            animation: fadeIn 0.3s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .sidebar {
-                position: fixed;
-                left: 0;
-                top: 0;
-                height: 100vh;
-                z-index: 99;
-                transform: translateX(-100%);
-            }
-            
-            .sidebar.active {
-                transform: translateX(0);
-            }
-            
-            .sidebar-overlay.active {
-                display: block;
-            }
-            
-            .menu-toggle {
-                display: block;
-            }
-            
-            .close-sidebar {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            
+        /* ===== RESPONSIVE DESIGN ===== */
+        @media (max-width: 1200px) {
             .products-grid {
-                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-                gap: 20px;
+                grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+                gap: 24px;
+            }
+        }
+        
+        @media (max-width: 1024px) {
+            .products-section.shifted {
+                margin-left: 0;
+            }
+            
+            .panel-toggle.active {
+                left: 24px;
             }
         }
         
@@ -780,6 +892,11 @@ try {
             .header-content {
                 flex-wrap: wrap;
                 gap: 16px;
+                padding: 16px 20px;
+            }
+            
+            .logo {
+                font-size: 26px;
             }
             
             .search-container {
@@ -790,102 +907,90 @@ try {
             
             .products-grid {
                 grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-                gap: 16px;
+                gap: 18px;
             }
             
             .products-section {
-                padding: 20px 16px;
+                padding: 24px 16px;
             }
             
             .product-image {
-                height: 180px;
+                height: 220px;
             }
             
             .product-info {
-                padding: 14px;
+                padding: 16px;
             }
             
             .product-name {
                 font-size: 14px;
-                min-height: 40px;
+                min-height: 42px;
             }
             
             .product-price {
-                font-size: 18px;
+                font-size: 19px;
+            }
+            
+            .side-panel {
+                width: 85%;
+                max-width: 320px;
+            }
+            
+            .panel-toggle {
+                width: 52px;
+                height: 52px;
+                font-size: 22px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .logo {
+                font-size: 24px;
+            }
+            
+            .products-header h2 {
+                font-size: 28px;
+            }
+            
+            .products-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 14px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="header-content">
-            <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-            <a href="index.php" class="logo">PikKiT</a>
-            
-            <div class="search-container">
-                <form method="GET" action="index.php" class="search-form" id="searchForm">
-                    <span class="search-icon"></span>
-                    <input 
-                        type="text" 
-                        name="search" 
-                        class="search-input" 
-                        id="searchInput"
-                        placeholder="Search for anything..."
-                        value="<?php echo htmlspecialchars($searchQuery); ?>"
-                        autocomplete="off"
-                    >
-                    <button type="button" class="clear-search" id="clearSearch" onclick="clearSearch()">✕</button>
-                    <button type="submit" class="search-btn">Search</button>
-                </form>
-            </div>
-            
-            <div class="header-actions">
-                <?php if($isLoggedIn): ?>
-                    <div class="user-menu">
-                        <div class="user-btn">
-                            <div class="user-avatar">👤</div>
-                            <span><?php echo htmlspecialchars($userName); ?></span>
-                        </div>
-                        <div class="user-dropdown">
-                            <a href="profile.php">👤 My Profile</a>
-                            <a href="my_orders.php">📦 My Orders</a>
-                            <a href="my_products.php">🏷️ My Products</a>
-                            <a href="pocket.php">🛒 My Pocket</a>
-                            <a href="index.php?logout=1">🚪 Logout</a>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <a href="login.php" class="btn btn-login">Login</a>
-                    <a href="registration.php" class="btn btn-signup">Sign Up</a>
-                <?php endif; ?>
-            </div>
+    <!-- Panel Toggle Button -->
+    <button class="panel-toggle" id="panelToggle" onclick="togglePanel()">
+        <span id="toggleIcon">☰</span>
+    </button>
+    
+    <!-- Panel Overlay -->
+    <div class="panel-overlay" id="panelOverlay" onclick="togglePanel()"></div>
+    
+    <!-- Side Panel -->
+    <aside class="side-panel" id="sidePanel">
+        <div class="panel-header">
+            <div class="panel-logo">PikKiT</div>
+            <button class="panel-close" onclick="togglePanel()">✕</button>
         </div>
-    </header>
-    
-    <!-- Sidebar Overlay -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
-    
-    <!-- Main Container -->
-    <div class="main-container">
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <span class="sidebar-title">Menu</span>
-                <button class="close-sidebar" onclick="toggleSidebar()">✕</button>
-            </div>
-            
+        
+        <div class="panel-content">
             <?php if($isLoggedIn): ?>
-                <button class="sell-btn" onclick="location.href='sell_product.php'">
-                    <span></span>
-                    Sell Product
-                </button>
+                <!-- Quick Actions -->
+                <div class="panel-actions">
+                    <a href="sell_product.php" class="panel-btn">
+                        <div class="panel-btn-icon"></div>
+                        <span>Sell</span>
+                    </a>
+                    <a href="my_products.php" class="panel-btn">
+                        <div class="panel-btn-icon">📦</div>
+                        <span>Create Project</span>
+                    </a>
+                </div>
                 
-                <div class="pockets-section">
-                    <div class="section-title">
-                        <span></span>
-                        <span>My Pockets</span>
-                    </div>
+                <div class="panel-section">
+                    <div class="panel-section-title">My Pockets</div>
                     
                     <?php if(isset($successMsg)): ?>
                         <div class="alert alert-success"><?php echo htmlspecialchars($successMsg); ?></div>
@@ -921,6 +1026,7 @@ try {
                             <?php endforeach; ?>
                         <?php else: ?>
                             <div class="empty-pockets">
+                                <div class="empty-pockets-icon"></div>
                                 No pockets yet.<br>
                                 Create one to organize products!
                             </div>
@@ -931,15 +1037,68 @@ try {
                 <div class="login-prompt">
                     <p><a href="login.php">Login</a> to sell and create pockets</p>
                 </div>
-                <button class="sell-btn" onclick="alert('Please login to sell products'); location.href='login.php'">
-                    <span>➕</span>
-                    Sell Product
-                </button>
+                <div class="panel-actions">
+                    <a href="login.php" class="panel-btn" onclick="alert('Please login to sell products'); return false;">
+                        <div class="panel-btn-icon"></div>
+                        <span>Sell</span>
+                    </a>
+                    <a href="login.php" class="panel-btn" onclick="alert('Please login to view projects'); return false;">
+                        <div class="panel-btn-icon"></div>
+                        <span>Create Project</span>
+                    </a>
+                </div>
             <?php endif; ?>
-        </aside>
-        
+        </div>
+    </aside>
+    
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="index.php" class="logo">PikKiT</a>
+            
+            <div class="search-container">
+                <form method="GET" action="index.php" class="search-form" id="searchForm">
+                    <input 
+                        type="text" 
+                        name="search" 
+                        class="search-input" 
+                        id="searchInput"
+                        placeholder="Search for anything"
+                        value="<?php echo htmlspecialchars($searchQuery); ?>"
+                        autocomplete="off"
+                    >
+                    <button type="button" class="clear-search" id="clearSearch" onclick="clearSearch()">✕</button>
+                    <button type="submit" class="search-btn">Search</button>
+                </form>
+            </div>
+            
+            <div class="header-actions">
+                <?php if($isLoggedIn): ?>
+                    <div class="user-menu">
+                        <div class="user-btn">
+                            <div class="user-avatar"></div>
+                            <span><?php echo htmlspecialchars($userName); ?></span>
+                        </div>
+                        <div class="user-dropdown">
+                            <a href="profile.php"> My Profile</a>
+                            <a href="my_orders.php">My Orders</a>
+                            <a href="my_products.php"> My Products</a>
+                            <a href="pocket.php"> My Pocket</a>
+                            <a href="index.php?logout=1"> Logout</a>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <a href="login.php" class="btn btn-login">Login</a>
+                    <a href="registration.php" class="btn btn-signup">Sign Up</a>
+                <?php endif; ?>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main Container -->
+    <div class="main-container">
         <!-- Products Section -->
-        <main class="products-section">
+        <main class="products-section" id="productsSection">
             <div class="products-header">
                 <h2><?php echo $searchQuery ? 'Search Results' : 'All Products'; ?></h2>
                 <p class="results-info">
@@ -962,7 +1121,7 @@ try {
                                 <?php if(!empty($product['image'])): ?>
                                     <img src="uploads/products/<?php echo htmlspecialchars($product['image']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
                                 <?php else: ?>
-                                    <span style="color: #999; font-size: 48px;"></span>
+                                    <span style="color: #999; font-size: 48px;">📦</span>
                                 <?php endif; ?>
                             </div>
                             <div class="product-info">
@@ -974,7 +1133,7 @@ try {
                 </div>
             <?php else: ?>
                 <div class="no-products">
-                    <div class="no-products-icon"></div>
+                    <div class="no-products-icon">🔍</div>
                     <h3>No products found</h3>
                     <p><?php echo $searchQuery ? 'Try searching with different keywords' : 'Be the first to add products!'; ?></p>
                 </div>
@@ -983,12 +1142,27 @@ try {
     </div>
     
     <script>
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
+        // Panel Toggle
+        function togglePanel() {
+            const panel = document.getElementById('sidePanel');
+            const overlay = document.getElementById('panelOverlay');
+            const toggle = document.getElementById('panelToggle');
+            const toggleIcon = document.getElementById('toggleIcon');
+            const productsSection = document.getElementById('productsSection');
             
-            sidebar.classList.toggle('active');
+            panel.classList.toggle('active');
             overlay.classList.toggle('active');
+            toggle.classList.toggle('active');
+            
+            if(panel.classList.contains('active')) {
+                toggleIcon.textContent = '✕';
+                if(window.innerWidth > 1024) {
+                    productsSection.classList.add('shifted');
+                }
+            } else {
+                toggleIcon.textContent = '☰';
+                productsSection.classList.remove('shifted');
+            }
         }
         
         // Search functionality
@@ -1015,15 +1189,32 @@ try {
         searchInput.addEventListener('input', updateClearButton);
         updateClearButton();
         
-        // Auto-hide sidebar on product click (mobile)
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            const panel = document.getElementById('sidePanel');
+            const productsSection = document.getElementById('productsSection');
+            
+            if(window.innerWidth <= 1024) {
+                productsSection.classList.remove('shifted');
+            } else if(panel.classList.contains('active')) {
+                productsSection.classList.add('shifted');
+            }
+        });
+        
+        // Close panel when clicking on a link (mobile only)
         if(window.innerWidth <= 1024) {
-            document.querySelectorAll('.product-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    const sidebar = document.getElementById('sidebar');
-                    const overlay = document.getElementById('sidebarOverlay');
-                    if(sidebar.classList.contains('active')) {
-                        sidebar.classList.remove('active');
+            document.querySelectorAll('.side-panel a, .panel-btn').forEach(link => {
+                link.addEventListener('click', function() {
+                    const panel = document.getElementById('sidePanel');
+                    const overlay = document.getElementById('panelOverlay');
+                    const toggle = document.getElementById('panelToggle');
+                    const toggleIcon = document.getElementById('toggleIcon');
+                    
+                    if(panel.classList.contains('active')) {
+                        panel.classList.remove('active');
                         overlay.classList.remove('active');
+                        toggle.classList.remove('active');
+                        toggleIcon.textContent = '☰';
                     }
                 });
             });
