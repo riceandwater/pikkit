@@ -22,26 +22,53 @@ if($productId <= 0) {
     exit();
 }
 
+// Get user's pockets if logged in
+$userPockets = [];
+if($isLoggedIn) {
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM pockets WHERE user_id = ? ORDER BY created_at DESC");
+        $stmt->execute([$userId]);
+        $userPockets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch(PDOException $e) {
+        $userPockets = [];
+    }
+}
+
 // Handle Add to Pocket
 if(isset($_POST['add_to_pocket']) && $isLoggedIn) {
-    try {
-        // Check if already in pocket
-        $stmt = $pdo->prepare("SELECT * FROM pocket WHERE user_id = ? AND product_id = ?");
-        $stmt->execute([$userId, $productId]);
-        
-        if($stmt->fetch()) {
-            // Update quantity
-            $stmt = $pdo->prepare("UPDATE pocket SET quantity = quantity + 1 WHERE user_id = ? AND product_id = ?");
-            $stmt->execute([$userId, $productId]);
-            $message = "Product quantity updated in pocket!";
-        } else {
-            // Add new
-            $stmt = $pdo->prepare("INSERT INTO pocket (user_id, product_id, quantity) VALUES (?, ?, 1)");
-            $stmt->execute([$userId, $productId]);
-            $message = "Product added to pocket!";
+    $selectedPocketId = isset($_POST['pocket_id']) ? (int)$_POST['pocket_id'] : 0;
+    
+    if($selectedPocketId > 0) {
+        try {
+            // Verify pocket belongs to user
+            $stmt = $pdo->prepare("SELECT * FROM pockets WHERE id = ? AND user_id = ?");
+            $stmt->execute([$selectedPocketId, $userId]);
+            $pocket = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if($pocket) {
+                // Check if already in pocket
+                $stmt = $pdo->prepare("SELECT * FROM pocket WHERE user_id = ? AND product_id = ? AND pocket_id = ?");
+                $stmt->execute([$userId, $productId, $selectedPocketId]);
+                
+                if($stmt->fetch()) {
+                    // Update quantity
+                    $stmt = $pdo->prepare("UPDATE pocket SET quantity = quantity + 1 WHERE user_id = ? AND product_id = ? AND pocket_id = ?");
+                    $stmt->execute([$userId, $productId, $selectedPocketId]);
+                    $message = "Product quantity updated in pocket!";
+                } else {
+                    // Add new
+                    $stmt = $pdo->prepare("INSERT INTO pocket (user_id, product_id, pocket_id, quantity, added_at) VALUES (?, ?, ?, 1, NOW())");
+                    $stmt->execute([$userId, $productId, $selectedPocketId]);
+                    $message = "Product added to pocket successfully!";
+                }
+            } else {
+                $error = "Invalid pocket selected";
+            }
+        } catch(PDOException $e) {
+            $error = "Failed to add to pocket: " . $e->getMessage();
         }
-    } catch(PDOException $e) {
-        $error = "Failed to add to pocket";
+    } else {
+        $error = "Please select a pocket";
     }
 }
 
@@ -55,7 +82,7 @@ if(isset($_POST['buy_now']) && $isLoggedIn) {
         
         if($product) {
             // Create buyer record
-            $stmt = $pdo->prepare("INSERT INTO buyers (user_id, product_id, quantity, total_price, status) VALUES (?, ?, 1, ?, 'completed')");
+            $stmt = $pdo->prepare("INSERT INTO buyers (user_id, product_id, quantity, total_price, status, purchase_date) VALUES (?, ?, 1, ?, 'completed', NOW())");
             $stmt->execute([$userId, $productId, $product['price']]);
             
             // Update seller's total sales
@@ -103,6 +130,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($product['name']); ?> - Pikkit</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -110,34 +138,62 @@ try {
             box-sizing: border-box;
         }
         
+        :root {
+            --primary-pink: #FFB6D9;
+            --primary-pink-dark: #FF8FB8;
+            --accent-pink: #FF6B9D;
+            --secondary-gray: #2C2C2C;
+            --light-gray: #F8F9FA;
+            --border-color: #E8E8E8;
+            --white: #FFFFFF;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.1);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.15);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--light-gray);
             min-height: 100vh;
+            color: var(--secondary-gray);
         }
         
         /* Header */
         .header {
-            background: #FFB6C1;
-            padding: 20px 0;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background: var(--white);
+            padding: 0;
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .header-content {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
-            padding: 0 20px;
+            padding: 16px 32px;
             display: flex;
             align-items: center;
-            gap: 30px;
+            gap: 32px;
         }
         
         .logo {
+            font-family: 'Outfit', sans-serif;
             font-size: 32px;
-            font-weight: bold;
-            color: #fff;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary-pink) 0%, var(--accent-pink) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             text-decoration: none;
-            letter-spacing: 2px;
+            letter-spacing: -1.5px;
+            transition: var(--transition);
+        }
+        
+        .logo:hover {
+            transform: scale(1.05);
         }
         
         .search-container {
@@ -147,43 +203,54 @@ try {
         
         .search-input {
             width: 100%;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 25px;
+            padding: 14px 20px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
             font-size: 15px;
             outline: none;
-        }
-        
-        .back-btn {
-            background: white;
-            color: #333;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: 600;
+            background: var(--white);
+            transition: var(--transition);
             cursor: pointer;
         }
         
+        .search-input:hover {
+            border-color: var(--primary-pink);
+        }
+        
+        .back-btn {
+            background: transparent;
+            color: var(--secondary-gray);
+            padding: 11px 24px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
         .back-btn:hover {
-            background: #f0f0f0;
+            border-color: var(--primary-pink);
+            color: var(--accent-pink);
+            background: rgba(255, 182, 217, 0.05);
         }
         
         /* Product Detail Container */
         .product-container {
             max-width: 1200px;
             margin: 40px auto;
-            padding: 0 20px;
+            padding: 0 32px;
         }
         
         .product-detail {
             background: white;
-            border-radius: 10px;
+            border-radius: 20px;
             padding: 40px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: var(--shadow-md);
             display: grid;
             grid-template-columns: 1fr 1.5fr;
             gap: 50px;
+            border: 2px solid var(--border-color);
         }
         
         .product-image-section {
@@ -196,13 +263,13 @@ try {
             width: 100%;
             max-width: 400px;
             height: 400px;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #f5f5f5;
+            background: var(--light-gray);
         }
         
         .product-image img {
@@ -218,15 +285,18 @@ try {
         }
         
         .product-title {
-            font-size: 28px;
-            font-weight: 600;
-            color: #333;
+            font-family: 'Outfit', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--secondary-gray);
+            letter-spacing: -0.5px;
         }
         
         .product-price {
-            font-size: 36px;
-            font-weight: bold;
-            color: #FF6347;
+            font-size: 38px;
+            font-weight: 800;
+            color: var(--accent-pink);
+            letter-spacing: -1px;
         }
         
         .product-description-section {
@@ -234,120 +304,207 @@ try {
         }
         
         .description-label {
-            font-size: 18px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--secondary-gray);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         
         .product-description {
-            font-size: 16px;
+            font-size: 15px;
             color: #666;
-            line-height: 1.6;
+            line-height: 1.7;
         }
         
         .product-meta {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            padding: 15px 0;
-            border-top: 1px solid #e0e0e0;
-            border-bottom: 1px solid #e0e0e0;
+            gap: 12px;
+            padding: 20px 0;
+            border-top: 2px solid var(--border-color);
+            border-bottom: 2px solid var(--border-color);
         }
         
         .meta-item {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             font-size: 14px;
         }
         
         .meta-label {
-            font-weight: 600;
+            font-weight: 700;
             color: #666;
+            min-width: 80px;
         }
         
         .meta-value {
-            color: #333;
+            color: var(--secondary-gray);
+            font-weight: 500;
+        }
+        
+        .action-section {
+            margin-top: 20px;
+        }
+        
+        .pocket-selector {
+            margin-bottom: 20px;
+        }
+        
+        .pocket-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--secondary-gray);
+            margin-bottom: 10px;
+        }
+        
+        .pocket-select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--secondary-gray);
+            background: white;
+            cursor: pointer;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+        
+        .pocket-select:focus {
+            outline: none;
+            border-color: var(--primary-pink);
+            box-shadow: 0 0 0 4px rgba(255, 182, 217, 0.15);
         }
         
         .action-buttons {
             display: flex;
             gap: 15px;
-            margin-top: 20px;
         }
         
         .btn {
             flex: 1;
-            padding: 15px 30px;
+            padding: 16px 32px;
             border: none;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 16px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: var(--transition);
+            font-family: inherit;
         }
         
         .btn-buy {
-            background: #FFB6C1;
-            color: #333;
+            background: linear-gradient(135deg, var(--primary-pink) 0%, var(--accent-pink) 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(255, 107, 157, 0.3);
         }
         
         .btn-buy:hover {
-            background: #FF9BAD;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
         }
         
         .btn-pocket {
-            background: #FFB6C1;
-            color: #333;
+            background: var(--secondary-gray);
+            color: white;
         }
         
         .btn-pocket:hover {
-            background: #FF9BAD;
+            background: #000;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .btn-pocket:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
         }
         
         .alert {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
             font-size: 14px;
+            font-weight: 600;
+            border: 2px solid;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
         .alert-success {
             background: #d4edda;
             color: #155724;
-            border: 1px solid #c3e6cb;
+            border-color: #c3e6cb;
         }
         
         .alert-error {
             background: #f8d7da;
             color: #721c24;
-            border: 1px solid #f5c6cb;
+            border-color: #f5c6cb;
         }
         
         .alert-info {
             background: #d1ecf1;
             color: #0c5460;
-            border: 1px solid #bee5eb;
+            border-color: #bee5eb;
         }
         
         .login-prompt {
             background: #fff3cd;
-            padding: 15px;
-            border-radius: 8px;
+            padding: 20px;
+            border-radius: 12px;
             text-align: center;
             margin-top: 20px;
+            border: 2px solid #ffc107;
         }
         
         .login-prompt a {
-            color: #333;
+            color: var(--accent-pink);
+            font-weight: 700;
+            text-decoration: none;
+            border-bottom: 2px solid var(--accent-pink);
+        }
+        
+        .login-prompt a:hover {
+            opacity: 0.8;
+        }
+        
+        .no-pockets-notice {
+            background: var(--light-gray);
+            padding: 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 16px;
+            border: 2px dashed var(--border-color);
+        }
+        
+        .no-pockets-notice a {
+            color: var(--accent-pink);
             font-weight: 600;
+            text-decoration: none;
         }
         
         @media (max-width: 768px) {
             .product-detail {
                 grid-template-columns: 1fr;
                 gap: 30px;
-                padding: 20px;
+                padding: 24px;
             }
             
             .action-buttons {
@@ -363,6 +520,10 @@ try {
                 flex-basis: 100%;
                 margin-top: 15px;
             }
+            
+            .product-container {
+                padding: 0 16px;
+            }
         }
     </style>
 </head>
@@ -376,7 +537,7 @@ try {
                 <input type="text" class="search-input" placeholder="Search for anything" readonly onclick="window.location.href='index.php'">
             </div>
             
-            <a href="index.php" class="back-btn">← Back to Shop</a>
+            <a href="index.php" class="back-btn">Back to Shop</a>
         </div>
     </header>
     
@@ -413,7 +574,7 @@ try {
                 <div class="product-price">Rs. <?php echo number_format($product['price']); ?></div>
                 
                 <div class="product-description-section">
-                    <div class="description-label">DESCRIPTION:</div>
+                    <div class="description-label">Description</div>
                     <p class="product-description"><?php echo nl2br(htmlspecialchars($product['description'])); ?></p>
                 </div>
                 
@@ -436,10 +597,33 @@ try {
                 
                 <?php if($isLoggedIn): ?>
                     <?php if($product['stock'] > 0): ?>
-                        <form method="POST" class="action-buttons">
-                            <button type="submit" name="buy_now" class="btn btn-buy">BUY NOW</button>
-                            <button type="submit" name="add_to_pocket" class="btn btn-pocket">ADD TO POCKET</button>
-                        </form>
+                        <div class="action-section">
+                            <!-- Pocket Selection -->
+                            <form method="POST" id="addToPocketForm">
+                                <?php if(count($userPockets) > 0): ?>
+                                    <div class="pocket-selector">
+                                        <label class="pocket-label">Select Pocket:</label>
+                                        <select name="pocket_id" class="pocket-select" required>
+                                            <option value="">Choose a pocket...</option>
+                                            <?php foreach($userPockets as $pocket): ?>
+                                                <option value="<?php echo $pocket['id']; ?>"><?php echo htmlspecialchars($pocket['name']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="no-pockets-notice">
+                                        You don't have any pockets yet. <a href="index.php">Create one from the sidebar</a> to save items!
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <div class="action-buttons">
+                                    <button type="button" name="buy_now" class="btn btn-buy" onclick="buyNow()">BUY NOW</button>
+                                    <button type="submit" name="add_to_pocket" class="btn btn-pocket" <?php echo count($userPockets) == 0 ? 'disabled' : ''; ?>>
+                                        ADD TO POCKET
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     <?php else: ?>
                         <div class="alert alert-error">This product is currently out of stock</div>
                     <?php endif; ?>
@@ -451,5 +635,17 @@ try {
             </div>
         </div>
     </div>
+    
+    <script>
+        function buyNow() {
+            if(confirm('Confirm purchase of this product?')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.innerHTML = '<input type="hidden" name="buy_now" value="1">';
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+    </script>
 </body>
 </html>

@@ -627,7 +627,7 @@ if(isset($_POST['add_product'])) {
                     <div class="form-group">
                         <label>Product Image</label>
                         <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('product_image').click()">
-                            <div class="file-upload-icon">📷</div>
+                            <div class="file-upload-icon"></div>
                             <div class="file-upload-text">Click to upload or drag and drop</div>
                             <div class="file-upload-hint">JPG, JPEG, PNG, GIF (Max 5MB)</div>
                         </div>
@@ -640,7 +640,7 @@ if(isset($_POST['add_product'])) {
                             onchange="handleFileSelect(this.files)"
                         >
                         <div class="uploaded-file-info" id="uploadedFileInfo">
-                            <span class="file-icon">🖼️</span>
+                            <span class="file-icon"></span>
                             <div class="file-details">
                                 <div class="file-name" id="fileName"></div>
                                 <div class="file-size" id="fileSize"></div>
@@ -650,7 +650,7 @@ if(isset($_POST['add_product'])) {
                     </div>
                     
                     <button type="submit" name="add_product" class="btn btn-primary">
-                        <span>🚀</span>
+                        <span></span>
                         <span>List Product</span>
                     </button>
                 </form>
@@ -664,7 +664,7 @@ if(isset($_POST['add_product'])) {
                 <div class="preview-content">
                     <div class="preview-image-container">
                         <img id="previewImage" class="preview-image" alt="Product preview">
-                        <span class="preview-placeholder" id="previewPlaceholder">📦</span>
+                        <span class="preview-placeholder" id="previewPlaceholder"></span>
                     </div>
                     <div class="preview-info">
                         <div class="preview-name" id="previewName">Product Name</div>

@@ -983,10 +983,10 @@ try {
                         <div class="panel-btn-icon"></div>
                         <span>Sell</span>
                     </a>
-                    <a href="my_products.php" class="panel-btn">
+                   <!-- <a href="my_products.php" class="panel-btn">
                         <div class="panel-btn-icon">📦</div>
                         <span>Create Project</span>
-                    </a>
+                    </a> -->
                 </div>
                 
                 <div class="panel-section">
@@ -1019,7 +1019,7 @@ try {
                     <div class="pockets-list">
                         <?php if(count($userPockets) > 0): ?>
                             <?php foreach($userPockets as $pocket): ?>
-                                <a href="pocket_view.php?pocket_id=<?php echo $pocket['id']; ?>" class="pocket-item">
+                                <a href="pocket.php"<?php echo $pocket['id']; ?>" class="pocket-item">
                                     <span class="pocket-icon"></span>
                                     <span class="pocket-name"><?php echo htmlspecialchars($pocket['name']); ?></span>
                                 </a>
@@ -1042,10 +1042,7 @@ try {
                         <div class="panel-btn-icon"></div>
                         <span>Sell</span>
                     </a>
-                    <a href="login.php" class="panel-btn" onclick="alert('Please login to view projects'); return false;">
-                        <div class="panel-btn-icon"></div>
-                        <span>Create Project</span>
-                    </a>
+                    
                 </div>
             <?php endif; ?>
         </div>
