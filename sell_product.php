@@ -658,7 +658,7 @@ if(isset($_POST['add_product'])) {
             
             <div class="preview-card">
                 <div class="preview-title">
-                    <span>👁️</span>
+                    <span></span>
                     <span>Live Preview</span>
                 </div>
                 <div class="preview-content">

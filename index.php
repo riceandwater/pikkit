@@ -1130,7 +1130,7 @@ try {
                 </div>
             <?php else: ?>
                 <div class="no-products">
-                    <div class="no-products-icon">🔍</div>
+                    <div class="no-products-icon"></div>
                     <h3>No products found</h3>
                     <p><?php echo $searchQuery ? 'Try searching with different keywords' : 'Be the first to add products!'; ?></p>
                 </div>
