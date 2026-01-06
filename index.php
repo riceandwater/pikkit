@@ -323,8 +323,12 @@ try {
             box-shadow: var(--shadow-lg);
             min-width: 240px;
             overflow: hidden;
-            animation: slideDown 0.3s ease;
             border: 1px solid var(--border-color);
+        }
+        
+        .user-dropdown.show {
+            display: block;
+            animation: slideDown 0.3s ease;
         }
         
         @keyframes slideDown {
@@ -336,10 +340,6 @@ try {
                 opacity: 1;
                 transform: translateY(0);
             }
-        }
-        
-        .user-menu:hover .user-dropdown {
-            display: block;
         }
         
         .user-dropdown a {
@@ -983,10 +983,6 @@ try {
                         <div class="panel-btn-icon"></div>
                         <span>Sell</span>
                     </a>
-                   <!-- <a href="my_products.php" class="panel-btn">
-                        <div class="panel-btn-icon">📦</div>
-                        <span>Create Project</span>
-                    </a> -->
                 </div>
                 
                 <div class="panel-section">
@@ -1019,7 +1015,7 @@ try {
                     <div class="pockets-list">
                         <?php if(count($userPockets) > 0): ?>
                             <?php foreach($userPockets as $pocket): ?>
-                                <a href="pocket.php"<?php echo $pocket['id']; ?>" class="pocket-item">
+                                <a href="pocket.php?id=<?php echo $pocket['id']; ?>" class="pocket-item">
                                     <span class="pocket-icon"></span>
                                     <span class="pocket-name"><?php echo htmlspecialchars($pocket['name']); ?></span>
                                 </a>
@@ -1042,7 +1038,6 @@ try {
                         <div class="panel-btn-icon"></div>
                         <span>Sell</span>
                     </a>
-                    
                 </div>
             <?php endif; ?>
         </div>
@@ -1185,6 +1180,32 @@ try {
         
         searchInput.addEventListener('input', updateClearButton);
         updateClearButton();
+        
+        // User Dropdown Toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const userBtn = document.querySelector('.user-btn');
+            const userDropdown = document.querySelector('.user-dropdown');
+            
+            if(userBtn && userDropdown) {
+                // Toggle dropdown when clicking user button
+                userBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    userDropdown.classList.toggle('show');
+                });
+                
+                // Prevent dropdown from closing when clicking inside it
+                userDropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+                
+                // Close dropdown when clicking anywhere else on the page
+                document.addEventListener('click', function(e) {
+                    if(!userBtn.contains(e.target) && !userDropdown.contains(e.target)) {
+                        userDropdown.classList.remove('show');
+                    }
+                });
+            }
+        });
         
         // Handle window resize
         window.addEventListener('resize', function() {

@@ -616,12 +616,14 @@ try {
                                     </div>
                                 <?php endif; ?>
                                 
-                                <div class="action-buttons">
-                                    <button type="button" name="buy_now" class="btn btn-buy" onclick="buyNow()">BUY NOW</button>
-                                    <button type="submit" name="add_to_pocket" class="btn btn-pocket" <?php echo count($userPockets) == 0 ? 'disabled' : ''; ?>>
-                                        ADD TO POCKET
-                                    </button>
-                                </div>
+                              <div class="action-buttons">
+                           <button type="button" class="btn btn-buy" onclick="window.location.href='buy.php?id=<?php echo $productId; ?>'">
+                                 BUY NOW
+                             </button>
+                             <button type="submit" name="add_to_pocket" class="btn btn-pocket" <?php echo count($userPockets) == 0 ? 'disabled' : ''; ?>>
+                              ADD TO POCKET
+                               </button>
+                               </div>
                             </form>
                         </div>
                     <?php else: ?>

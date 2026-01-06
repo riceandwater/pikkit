@@ -8,16 +8,8 @@ if(!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Database connection
-try {
-    $pdo = new PDO("mysql:host=localhost;dbname=pikkit", "root", "");
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch(PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
-}
-
 $userId = $_SESSION['user_id'];
-$userName = $_SESSION['user_name'];
+$userName = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : '';
 
 // Get filter parameters
 $filterStatus = isset($_GET['status']) ? $_GET['status'] : 'all';
@@ -47,12 +39,12 @@ try {
     
     $sql .= " ORDER BY o.purchase_date DESC";
     
-    $stmt = $pdo->prepare($sql);
+    $stmt = $conn->prepare($sql);
     $stmt->execute($params);
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Get order statistics
-    $statsStmt = $pdo->prepare("
+    $statsStmt = $conn->prepare("
         SELECT 
             COUNT(*) as total_orders,
             SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_orders,
@@ -64,6 +56,17 @@ try {
     ");
     $statsStmt->execute([$userId]);
     $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Ensure stats have default values if no orders exist
+    if(!$stats || $stats['total_orders'] == 0) {
+        $stats = [
+            'total_orders' => 0, 
+            'pending_orders' => 0, 
+            'completed_orders' => 0, 
+            'cancelled_orders' => 0, 
+            'total_spent' => 0
+        ];
+    }
     
 } catch(PDOException $e) {
     $orders = [];
@@ -110,7 +113,6 @@ try {
             color: var(--secondary-gray);
         }
         
-        /* Header */
         .header {
             background: var(--white);
             padding: 16px 32px;
@@ -162,7 +164,6 @@ try {
             transform: translateX(-4px);
         }
         
-        /* Container */
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -188,7 +189,6 @@ try {
             font-weight: 500;
         }
         
-        /* Stats Cards */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -240,16 +240,6 @@ try {
             letter-spacing: -1px;
         }
         
-        .stat-icon {
-            position: absolute;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 48px;
-            opacity: 0.1;
-        }
-        
-        /* Filters */
         .filters-section {
             background: white;
             padding: 24px;
@@ -333,7 +323,6 @@ try {
             box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
         }
         
-        /* Orders List */
         .orders-section {
             background: white;
             border-radius: 16px;
@@ -518,16 +507,9 @@ try {
             letter-spacing: -1px;
         }
         
-        /* Empty State */
         .empty-state {
             text-align: center;
             padding: 80px 20px;
-        }
-        
-        .empty-icon {
-            font-size: 100px;
-            margin-bottom: 24px;
-            opacity: 0.3;
         }
         
         .empty-title {
@@ -563,7 +545,6 @@ try {
             box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
         }
         
-        /* Responsive */
         @media (max-width: 1024px) {
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -632,7 +613,7 @@ try {
 <body>
     <header class="header">
         <a href="index.php" class="logo">PikKiT</a>
-        <a href="index.php" class="back-link">← Back to Home</a>
+        <a href="index.php" class="back-link">Back to Home</a>
     </header>
     
     <div class="container">
@@ -641,31 +622,25 @@ try {
             <p class="page-subtitle">Track and manage your purchases</p>
         </div>
         
-        <!-- Statistics -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-label">Total Orders</div>
                 <div class="stat-value"><?php echo number_format($stats['total_orders']); ?></div>
-                <div class="stat-icon"></div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Pending</div>
                 <div class="stat-value"><?php echo number_format($stats['pending_orders']); ?></div>
-                <div class="stat-icon"></div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Completed</div>
                 <div class="stat-value"><?php echo number_format($stats['completed_orders']); ?></div>
-                <div class="stat-icon"></div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Total Spent</div>
                 <div class="stat-value">Rs. <?php echo number_format($stats['total_spent']); ?></div>
-                <div class="stat-icon"></div>
             </div>
         </div>
         
-        <!-- Filters -->
         <div class="filters-section">
             <form method="GET" action="my_orders.php">
                 <div class="filters-row">
@@ -689,11 +664,10 @@ try {
                         >
                     </div>
                 </div>
-                <button type="submit" class="filter-btn"> Apply Filters</button>
+                <button type="submit" class="filter-btn">Apply Filters</button>
             </form>
         </div>
         
-        <!-- Orders List -->
         <div class="orders-section">
             <div class="orders-header">
                 <h2 class="orders-title">Order History</h2>
@@ -710,14 +684,7 @@ try {
                                     <div class="order-date"><?php echo date('M d, Y g:i A', strtotime($order['purchase_date'])); ?></div>
                                 </div>
                                 <div class="order-status status-<?php echo $order['status']; ?>">
-                                    <?php 
-                                    $statusIcons = [
-                                        'pending' => '',
-                                        'completed' => '',
-                                        'cancelled' => ''
-                                    ];
-                                    echo $statusIcons[$order['status']] . ' ' . ucfirst($order['status']); 
-                                    ?>
+                                    <?php echo ucfirst($order['status']); ?>
                                 </div>
                             </div>
                             
@@ -725,7 +692,7 @@ try {
                                 <?php if(!empty($order['product_image'])): ?>
                                     <img src="uploads/products/<?php echo htmlspecialchars($order['product_image']); ?>" alt="Product" class="order-product-image">
                                 <?php else: ?>
-                                    <div class="order-product-image" style="display: flex; align-items: center; justify-content: center; color: #999; font-size: 36px;">📦</div>
+                                    <div class="order-product-image" style="display: flex; align-items: center; justify-content: center; color: #999; font-size: 24px; font-weight: 600;">No Image</div>
                                 <?php endif; ?>
                                 
                                 <div class="order-details">
@@ -742,7 +709,7 @@ try {
                                         </div>
                                         <div class="meta-item">
                                             <span class="meta-label">Seller</span>
-                                            <span class="meta-value seller-name">👤 <?php echo htmlspecialchars($order['seller_name']); ?></span>
+                                            <span class="meta-value seller-name"><?php echo htmlspecialchars($order['seller_name']); ?></span>
                                         </div>
                                     </div>
                                 </div>
@@ -757,7 +724,6 @@ try {
                 </div>
             <?php else: ?>
                 <div class="empty-state">
-                    <div class="empty-icon"></div>
                     <h3 class="empty-title">No Orders Found</h3>
                     <p class="empty-text">
                         <?php if($searchQuery || $filterStatus !== 'all'): ?>
