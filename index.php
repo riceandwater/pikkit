@@ -1,6 +1,7 @@
 <?php
 session_start();
 include 'dbconnect.php';
+include 'database.php';
 
 // Database connection
 try {

@@ -27,10 +27,14 @@ if(isset($_POST['add_product'])) {
     $price = floatval($_POST['price']);
     $category = trim($_POST['category']);
     $stock = intval($_POST['stock']);
+    $email = trim($_POST['seller_email']);
+    $color = trim($_POST['product_color']);
     
     // Validate inputs
-    if(empty($name) || empty($description) || $price <= 0) {
+    if(empty($name) || empty($description) || $price <= 0 || empty($email)) {
         $error = "Please fill in all required fields with valid values";
+    } elseif(!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Please enter a valid email address";
     } else {
         // Handle image upload
         $imageName = null;
@@ -63,18 +67,18 @@ if(isset($_POST['add_product'])) {
             try {
                 // Insert product
                 $stmt = $pdo->prepare("
-                    INSERT INTO products (seller_id, name, description, price, category, stock, image) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO products (seller_id, name, description, price, category, stock, image, seller_email, color) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([$userId, $name, $description, $price, $category, $stock, $imageName]);
+                $stmt->execute([$userId, $name, $description, $price, $category, $stock, $imageName, $email, $color]);
                 
                 // Update or create seller record
                 $stmt = $pdo->prepare("
-                    INSERT INTO sellers (user_id, total_products) 
-                    VALUES (?, 1) 
-                    ON DUPLICATE KEY UPDATE total_products = total_products + 1
+                    INSERT INTO sellers (user_id, total_products, email) 
+                    VALUES (?, 1, ?) 
+                    ON DUPLICATE KEY UPDATE total_products = total_products + 1, email = ?
                 ");
-                $stmt->execute([$userId]);
+                $stmt->execute([$userId, $email, $email]);
                 
                 $success = "Product added successfully! Redirecting...";
                 header("refresh:2;url=index.php");
@@ -83,6 +87,29 @@ if(isset($_POST['add_product'])) {
                 error_log("Product insert error: " . $e->getMessage());
             }
         }
+    }
+}
+
+// Fetch user's email if exists
+$userEmail = '';
+try {
+    $stmt = $pdo->prepare("SELECT email FROM sellers WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $seller = $stmt->fetch(PDO::FETCH_ASSOC);
+    if($seller) {
+        $userEmail = $seller['email'];
+    }
+} catch(PDOException $e) {
+    // If sellers table doesn't have email yet, try users table
+    try {
+        $stmt = $pdo->prepare("SELECT email FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if($user) {
+            $userEmail = $user['email'];
+        }
+    } catch(PDOException $e) {
+        // Ignore error
     }
 }
 ?>
@@ -289,6 +316,19 @@ if(isset($_POST['add_product'])) {
             font-weight: 600;
         }
         
+        .preview-color {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .color-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+        }
+        
         .alert {
             padding: 14px 18px;
             border-radius: 12px;
@@ -370,6 +410,24 @@ if(isset($_POST['add_product'])) {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
+        }
+        
+        .color-input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .color-input-wrapper input[type="color"] {
+            width: 60px;
+            height: 45px;
+            padding: 4px;
+            cursor: pointer;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .color-input-wrapper input[type="text"] {
+            flex: 1;
         }
         
         .file-upload-area {
@@ -500,6 +558,22 @@ if(isset($_POST['add_product'])) {
             line-height: 1.5;
         }
         
+        .email-icon {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+        }
+        
+        .input-with-icon {
+            position: relative;
+        }
+        
+        .input-with-icon input {
+            padding-right: 45px;
+        }
+        
         @media (max-width: 1024px) {
             .form-layout {
                 grid-template-columns: 1fr;
@@ -570,6 +644,23 @@ if(isset($_POST['add_product'])) {
                     </div>
                     
                     <div class="form-group">
+                        <label for="seller_email">Contact Email <span class="required">*</span></label>
+                        <div class="input-with-icon">
+                            <input 
+                                type="email" 
+                                id="seller_email" 
+                                name="seller_email" 
+                                placeholder="your.email@example.com"
+                                value="<?php echo htmlspecialchars($userEmail); ?>"
+                                required
+                                oninput="updatePreview()"
+                            >
+                            <span class="email-icon">✉</span>
+                        </div>
+                        <div class="hint">This email will be used for buyer inquiries and order notifications.</div>
+                    </div>
+                    
+                    <div class="form-group">
                         <label for="description">Description <span class="required">*</span></label>
                         <textarea 
                             id="description" 
@@ -610,18 +701,22 @@ if(isset($_POST['add_product'])) {
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="category">Category</label>
-                        <select id="category" name="category" onchange="updatePreview()">
-                            <option value="">Select Category</option>
-                            <option value="Electronics">Electronics</option>
-                            <option value="Clothing">Clothing</option>
-                            <option value="Sports">Sports & Outdoors</option>
-                            <option value="Toys">Toys & Games</option>
-                            <option value="Home">Home & Garden</option>
-                            <option value="Books">Books</option>
-                            <option value="Other">Other</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="category">Category</label>
+                            <select id="category" name="category" onchange="updatePreview()">
+                                <option value="">Select Category</option>
+                                <option value="Electronics">Electronics</option>
+                                <option value="Clothing">Clothing</option>
+                                <option value="Sports">Sports & Outdoors</option>
+                                <option value="Toys">Toys & Games</option>
+                                <option value="Home">Home & Garden</option>
+                                <option value="Books">Books</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        
                     </div>
                     
                     <div class="form-group">
@@ -664,7 +759,7 @@ if(isset($_POST['add_product'])) {
                 <div class="preview-content">
                     <div class="preview-image-container">
                         <img id="previewImage" class="preview-image" alt="Product preview">
-                        <span class="preview-placeholder" id="previewPlaceholder"></span>
+                        <span class="preview-placeholder" id="previewPlaceholder">📷</span>
                     </div>
                     <div class="preview-info">
                         <div class="preview-name" id="previewName">Product Name</div>
@@ -673,6 +768,10 @@ if(isset($_POST['add_product'])) {
                         <div class="preview-meta">
                             <span class="preview-badge" id="previewCategory">Uncategorized</span>
                             <span class="preview-badge" id="previewStock">Stock: 1</span>
+                            <span class="preview-badge preview-color" id="previewColor">
+                                <span class="color-dot" id="previewColorDot"></span>
+                                <span id="previewColorText">No color</span>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -681,6 +780,9 @@ if(isset($_POST['add_product'])) {
     </div>
     
     <script>
+        // Color picker sync
+       
+        
         // Drag and drop functionality
         const fileUploadArea = document.getElementById('fileUploadArea');
         const fileInput = document.getElementById('product_image');
@@ -765,7 +867,7 @@ if(isset($_POST['add_product'])) {
             return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
         
-        // Live preview updates
+          // Live preview updates
         function updatePreview() {
             const name = document.getElementById('product_name').value || 'Product Name';
             const price = document.getElementById('price').value || '0';

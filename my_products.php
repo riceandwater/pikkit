@@ -966,7 +966,7 @@ if(isset($_GET['logout'])) {
                 <div class="stat-value"><?php echo count($products); ?></div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Total Value</div>
+                <div class="stat-label"> Price per product</div>
                 <div class="stat-value">
                     Rs. <?php echo number_format(array_sum(array_column($products, 'price'))); ?>
                 </div>

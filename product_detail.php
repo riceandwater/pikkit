@@ -344,6 +344,35 @@ try {
             font-weight: 500;
         }
         
+        .contact-seller-section {
+            margin: 20px 0;
+        }
+        
+        .contact-seller-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 24px;
+            background: #FF8FB8;
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 15px;
+            transition: var(--transition);
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+        }
+        
+        .contact-seller-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(66, 133, 244, 0.4);
+        }
+        
+        .contact-seller-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+        
         .action-section {
             margin-top: 20px;
         }
@@ -583,6 +612,12 @@ try {
                         <span class="meta-label">Seller:</span>
                         <span class="meta-value"><?php echo htmlspecialchars($product['seller_name']); ?></span>
                     </div>
+                    <?php if(!empty($product['seller_email'])): ?>
+                        <div class="meta-item">
+                            <span class="meta-label">Email:</span>
+                            <span class="meta-value"><?php echo htmlspecialchars($product['seller_email']); ?></span>
+                        </div>
+                    <?php endif; ?>
                     <?php if(!empty($product['category'])): ?>
                         <div class="meta-item">
                             <span class="meta-label">Category:</span>
@@ -594,6 +629,26 @@ try {
                         <span class="meta-value"><?php echo $product['stock'] > 0 ? $product['stock'] . ' available' : 'Out of stock'; ?></span>
                     </div>
                 </div>
+                
+                <?php if(!empty($product['seller_email'])): ?>
+                    <div class="contact-seller-section">
+                        <a href="https://mail.google.com/mail/?view=cm&fs=1&to=<?php echo urlencode($product['seller_email']); ?>&su=<?php echo urlencode('Inquiry about: ' . $product['name']); ?>&body=<?php echo urlencode('Hi ' . $product['seller_name'] . ',
+
+I am interested in your product "' . $product['name'] . '" listed on Pikkit for Rs. ' . number_format($product['price']) . '.
+
+Could you please provide more information?
+
+Thank you!'); ?>" 
+                           target="_blank" 
+                           class="contact-seller-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                            Contact Seller via Gmail
+                        </a>
+                    </div>
+                <?php endif; ?>
                 
                 <?php if($isLoggedIn): ?>
                     <?php if($product['stock'] > 0): ?>
