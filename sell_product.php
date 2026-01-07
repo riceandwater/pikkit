@@ -90,27 +90,33 @@ if(isset($_POST['add_product'])) {
     }
 }
 
-// Fetch user's email if exists
+// Fetch user's email - prioritize login email from users table
 $userEmail = '';
 try {
-    $stmt = $pdo->prepare("SELECT email FROM sellers WHERE user_id = ?");
+    // First, get email from users table (login email)
+    $stmt = $pdo->prepare("SELECT email FROM users WHERE id = ?");
     $stmt->execute([$userId]);
-    $seller = $stmt->fetch(PDO::FETCH_ASSOC);
-    if($seller) {
-        $userEmail = $seller['email'];
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if($user && !empty($user['email'])) {
+        // Use the email from users table (login email)
+        $userEmail = $user['email'];
+    } else {
+        // Fallback: check if there's an email in sellers table
+        try {
+            $stmt = $pdo->prepare("SELECT email FROM sellers WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $seller = $stmt->fetch(PDO::FETCH_ASSOC);
+            if($seller && !empty($seller['email'])) {
+                $userEmail = $seller['email'];
+            }
+        } catch(PDOException $e) {
+            // Ignore error
+        }
     }
 } catch(PDOException $e) {
-    // If sellers table doesn't have email yet, try users table
-    try {
-        $stmt = $pdo->prepare("SELECT email FROM users WHERE id = ?");
-        $stmt->execute([$userId]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        if($user) {
-            $userEmail = $user['email'];
-        }
-    } catch(PDOException $e) {
-        // Ignore error
-    }
+    // Ignore error
+    error_log("Error fetching user email: " . $e->getMessage());
 }
 ?>
 
@@ -610,7 +616,7 @@ try {
         <div class="header-content">
             <a href="index.php" class="logo">PikKiT</a>
             <a href="index.php" class="back-btn">
-                <span>←</span>
+                <span>&larr;</span>
                 <span>Back to Shop</span>
             </a>
         </div>
@@ -655,7 +661,7 @@ try {
                                 required
                                 oninput="updatePreview()"
                             >
-                            <span class="email-icon">✉</span>
+                            <span class="email-icon">&#9993;</span>
                         </div>
                         <div class="hint">This email will be used for buyer inquiries and order notifications.</div>
                     </div>
@@ -722,7 +728,7 @@ try {
                     <div class="form-group">
                         <label>Product Image</label>
                         <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('product_image').click()">
-                            <div class="file-upload-icon"></div>
+                            <div class="file-upload-icon">&#128247;</div>
                             <div class="file-upload-text">Click to upload or drag and drop</div>
                             <div class="file-upload-hint">JPG, JPEG, PNG, GIF (Max 5MB)</div>
                         </div>
@@ -735,7 +741,7 @@ try {
                             onchange="handleFileSelect(this.files)"
                         >
                         <div class="uploaded-file-info" id="uploadedFileInfo">
-                            <span class="file-icon"></span>
+                            <span class="file-icon">&#128444;</span>
                             <div class="file-details">
                                 <div class="file-name" id="fileName"></div>
                                 <div class="file-size" id="fileSize"></div>
@@ -745,7 +751,6 @@ try {
                     </div>
                     
                     <button type="submit" name="add_product" class="btn btn-primary">
-                        <span></span>
                         <span>List Product</span>
                     </button>
                 </form>
@@ -753,13 +758,12 @@ try {
             
             <div class="preview-card">
                 <div class="preview-title">
-                    <span></span>
                     <span>Live Preview</span>
                 </div>
                 <div class="preview-content">
                     <div class="preview-image-container">
                         <img id="previewImage" class="preview-image" alt="Product preview">
-                        <span class="preview-placeholder" id="previewPlaceholder">📷</span>
+                        <span class="preview-placeholder" id="previewPlaceholder">&#128247;</span>
                     </div>
                     <div class="preview-info">
                         <div class="preview-name" id="previewName">Product Name</div>
@@ -768,10 +772,6 @@ try {
                         <div class="preview-meta">
                             <span class="preview-badge" id="previewCategory">Uncategorized</span>
                             <span class="preview-badge" id="previewStock">Stock: 1</span>
-                            <span class="preview-badge preview-color" id="previewColor">
-                                <span class="color-dot" id="previewColorDot"></span>
-                                <span id="previewColorText">No color</span>
-                            </span>
                         </div>
                     </div>
                 </div>
@@ -780,9 +780,6 @@ try {
     </div>
     
     <script>
-        // Color picker sync
-       
-        
         // Drag and drop functionality
         const fileUploadArea = document.getElementById('fileUploadArea');
         const fileInput = document.getElementById('product_image');
@@ -867,7 +864,7 @@ try {
             return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
         
-          // Live preview updates
+        // Live preview updates
         function updatePreview() {
             const name = document.getElementById('product_name').value || 'Product Name';
             const price = document.getElementById('price').value || '0';

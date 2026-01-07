@@ -2,7 +2,10 @@
 // Start output buffering FIRST to prevent header errors
 ob_start();
 session_start();
-date_default_timezone_set('Asia/Kathmandu'); // ← ADD THIS LINE
+
+// DEBUG MODE - Add this at the top temporarily
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 // Handle session clearing BEFORE any output
 if(isset($_GET['clear_reset'])) {
@@ -37,6 +40,15 @@ $error = '';
 $success = '';
 $showOtpForm = false;
 $showResetForm = false;
+
+// DEBUG: Show session state at top of page
+$debug_info = "DEBUG INFO:<br>";
+$debug_info .= "Session Email: " . ($_SESSION['forgot_email'] ?? 'NOT SET') . "<br>";
+$debug_info .= "OTP Verified: " . (isset($_SESSION['otp_verified']) ? ($_SESSION['otp_verified'] ? 'TRUE' : 'FALSE') : 'NOT SET') . "<br>";
+$debug_info .= "Reset Step: " . ($_SESSION['reset_step'] ?? 'NOT SET') . "<br>";
+$debug_info .= "GET Step: " . ($_GET['step'] ?? 'NOT SET') . "<br>";
+$debug_info .= "Show OTP Form: " . ($showOtpForm ? 'TRUE' : 'FALSE') . "<br>";
+$debug_info .= "Show Reset Form: " . ($showResetForm ? 'TRUE' : 'FALSE') . "<br>";
 
 // Function to validate Gmail address
 function isValidGmail($email) {
@@ -141,9 +153,7 @@ if(isset($_POST['send_otp'])) {
         
         if($user) {
             $otp = (string)rand(100000, 999999);
-$current_time = time();
-$expiry_time = $current_time + (15 * 60);
-$expiry = date('Y-m-d H:i:s', $expiry_time); // ← NEW
+            $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
             
             $stmt = $pdo->prepare("DELETE FROM otp_codes WHERE email = ?");
             $stmt->execute([$email]);
@@ -155,8 +165,13 @@ $expiry = date('Y-m-d H:i:s', $expiry_time); // ← NEW
                 $_SESSION['forgot_email'] = $email;
                 $_SESSION['reset_step'] = 'otp';
                 unset($_SESSION['otp_verified']);
-                $showOtpForm = true;
-                $success = "OTP sent successfully! Please check your Gmail inbox.";
+                
+                // DEBUG: Check what we set
+                error_log("OTP SENT - Email: $email, Step: otp");
+                
+                header("Location: login.php?step=otp&success=1");
+                ob_end_flush();
+                exit();
             } else {
                 $error = "Failed to send OTP. Please try again.";
             }
@@ -166,17 +181,21 @@ $expiry = date('Y-m-d H:i:s', $expiry_time); // ← NEW
     }
 }
 
-// STEP 2: Verify OTP - FIXED VERSION
+// STEP 2: Verify OTP - THIS IS THE CRITICAL PART
 if(isset($_POST['verify_otp'])) {
     $email = $_SESSION['forgot_email'] ?? '';
     $entered_otp = preg_replace('/\s+/', '', trim($_POST['otp']));
     
+    error_log("VERIFY OTP STARTED - Email from session: $email, Entered OTP: $entered_otp");
+    
     if(empty($email)) {
         $error = "Session expired. Please start over.";
+        error_log("ERROR: No email in session");
         unset($_SESSION['forgot_email']);
         unset($_SESSION['reset_step']);
     } elseif(empty($entered_otp) || strlen($entered_otp) != 6) {
         $error = "Please enter a valid 6-digit OTP.";
+        error_log("ERROR: Invalid OTP format");
         $_SESSION['reset_step'] = 'otp';
         $showOtpForm = true;
     } else {
@@ -185,14 +204,28 @@ if(isset($_POST['verify_otp'])) {
         $stmt->execute([$email, $entered_otp]);
         $otp_record = $stmt->fetch(PDO::FETCH_ASSOC);
         
+        error_log("OTP Query Result: " . ($otp_record ? "FOUND" : "NOT FOUND"));
+        
         if($otp_record) {
-            // OTP IS VALID - DON'T REDIRECT, JUST SHOW THE FORM
+            // SUCCESS - Set session variables
             $_SESSION['otp_verified'] = true;
             $_SESSION['reset_step'] = 'password';
             
-            // DON'T REDIRECT - Just set the flag to show reset form
-            $showResetForm = true;
-            $success = "OTP verified! Please create your new password.";
+            error_log("OTP VERIFIED - Setting otp_verified=true, reset_step=password");
+            
+            // Force write session
+            session_write_close();
+            
+            // Restart session
+            session_start();
+            
+            // Verify it was saved
+            error_log("After session restart - otp_verified: " . ($_SESSION['otp_verified'] ? 'true' : 'false'));
+            
+            // REDIRECT
+            header("Location: login.php?step=reset&success=1");
+            ob_end_flush();
+            exit();
         } else {
             // Check if expired
             $stmt = $pdo->prepare("SELECT * FROM otp_codes WHERE email = ? AND otp = ?");
@@ -201,8 +234,10 @@ if(isset($_POST['verify_otp'])) {
             
             if($expired_record) {
                 $error = "OTP has expired. Please request a new one.";
+                error_log("ERROR: OTP expired");
             } else {
                 $error = "Invalid OTP. Please check and try again.";
+                error_log("ERROR: OTP not found in database");
             }
             $_SESSION['reset_step'] = 'otp';
             $showOtpForm = true;
@@ -216,8 +251,11 @@ if(isset($_POST['reset_password'])) {
     $new_password = $_POST['new_password'];
     $confirm_password = $_POST['confirm_password'];
     
+    error_log("RESET PASSWORD - Email: $email, OTP Verified: " . (isset($_SESSION['otp_verified']) ? 'true' : 'false'));
+    
     if(!isset($_SESSION['otp_verified']) || !$_SESSION['otp_verified']) {
         $error = "Please verify OTP first";
+        error_log("ERROR: OTP not verified");
         $_SESSION['reset_step'] = 'otp';
         $showOtpForm = true;
     } elseif(empty($email)) {
@@ -256,6 +294,8 @@ if(isset($_POST['reset_password'])) {
                 $_SESSION['user_name'] = $user['name'];
                 $_SESSION['user_email'] = $user['email'];
                 
+                error_log("PASSWORD RESET SUCCESS - Redirecting to index.php");
+                
                 header("Location: index.php");
                 ob_end_flush();
                 exit();
@@ -267,16 +307,64 @@ if(isset($_POST['reset_password'])) {
     }
 }
 
-// Determine which form to show based on session state (if not already set by POST)
-if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
+// Handle URL parameters - THIS DETERMINES WHICH FORM TO SHOW
+if(isset($_GET['step'])) {
+    error_log("GET STEP: " . $_GET['step']);
+    
+    if($_GET['step'] === 'otp') {
+        if(isset($_SESSION['forgot_email']) && $_SESSION['reset_step'] === 'otp') {
+            $showOtpForm = true;
+            error_log("SHOWING OTP FORM");
+            if(isset($_GET['success'])) {
+                $success = "OTP sent successfully! Please check your Gmail inbox.";
+            }
+        } else {
+            error_log("ERROR: Cannot show OTP form - session check failed");
+        }
+    } elseif($_GET['step'] === 'reset') {
+        error_log("Checking for reset form - otp_verified: " . (isset($_SESSION['otp_verified']) ? ($_SESSION['otp_verified'] ? 'true' : 'false') : 'not set'));
+        error_log("forgot_email: " . (isset($_SESSION['forgot_email']) ? $_SESSION['forgot_email'] : 'not set'));
+        
+        if(isset($_SESSION['otp_verified']) && $_SESSION['otp_verified'] === true && isset($_SESSION['forgot_email'])) {
+            $showResetForm = true;
+            error_log("SHOWING RESET FORM");
+            if(isset($_GET['success'])) {
+                $success = "OTP verified! Please create your new password.";
+            }
+        } else {
+            error_log("ERROR: Cannot show reset form - Session expired or tampered");
+            unset($_SESSION['forgot_email']);
+            unset($_SESSION['otp_verified']);
+            unset($_SESSION['reset_step']);
+            header("Location: login.php");
+            ob_end_flush();
+            exit();
+        }
+    }
+}
+
+// Fallback: Determine form based on session (no URL params)
+if(!isset($_GET['step']) && isset($_SESSION['forgot_email']) && !$showOtpForm && !$showResetForm) {
     $step = $_SESSION['reset_step'] ?? 'email';
+    error_log("FALLBACK - Session step: $step");
     
     if($step === 'password' && isset($_SESSION['otp_verified']) && $_SESSION['otp_verified']) {
         $showResetForm = true;
+        error_log("FALLBACK - Showing reset form");
     } elseif($step === 'otp') {
         $showOtpForm = true;
+        error_log("FALLBACK - Showing OTP form");
     }
 }
+
+// Update debug info after processing
+$debug_info = "DEBUG INFO (After Processing):<br>";
+$debug_info .= "Session Email: " . ($_SESSION['forgot_email'] ?? 'NOT SET') . "<br>";
+$debug_info .= "OTP Verified: " . (isset($_SESSION['otp_verified']) ? ($_SESSION['otp_verified'] ? 'TRUE' : 'FALSE') : 'NOT SET') . "<br>";
+$debug_info .= "Reset Step: " . ($_SESSION['reset_step'] ?? 'NOT SET') . "<br>";
+$debug_info .= "GET Step: " . ($_GET['step'] ?? 'NOT SET') . "<br>";
+$debug_info .= "Show OTP Form: " . ($showOtpForm ? 'TRUE' : 'FALSE') . "<br>";
+$debug_info .= "Show Reset Form: " . ($showResetForm ? 'TRUE' : 'FALSE') . "<br>";
 ?>
 
 <!DOCTYPE html>
@@ -284,7 +372,7 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Pikkit</title>
+    <title>Login - Pikkit (DEBUG)</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         * {
@@ -301,6 +389,19 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             justify-content: center;
             align-items: center;
             padding: 20px;
+        }
+        
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #fff;
+            border: 2px solid #f00;
+            padding: 10px;
+            font-size: 11px;
+            max-width: 300px;
+            z-index: 9999;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
         
         .login-container {
@@ -395,14 +496,6 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             font-size: 11px;
             color: #666;
             margin-top: 4px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        
-        .gmail-hint::before {
-            content: "(i)";
-            font-weight: bold;
         }
         
         .btn {
@@ -423,12 +516,6 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
         
         .btn-primary:hover {
             background: #000;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-        
-        .btn-primary:active {
-            transform: translateY(0);
         }
         
         .divider {
@@ -475,10 +562,6 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             font-size: 12px;
         }
         
-        .forgot-password a:hover {
-            text-decoration: underline;
-        }
-        
         .register-link {
             text-align: center;
             margin-top: 15px;
@@ -494,10 +577,6 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             font-weight: 600;
         }
         
-        .register-link a:hover {
-            text-decoration: underline;
-        }
-        
         .modal {
             display: none;
             position: fixed;
@@ -509,12 +588,6 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             z-index: 1000;
             justify-content: center;
             align-items: center;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
         }
         
         .modal.active {
@@ -527,18 +600,6 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             border-radius: 10px;
             max-width: 400px;
             width: 90%;
-            animation: slideUp 0.3s ease;
-        }
-        
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
         
         .modal-header {
@@ -556,21 +617,11 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             margin-top: 10px;
         }
         
-        .close-modal:hover {
-            background: #e0e0e0;
-        }
-        
         .otp-input {
             text-align: center;
             font-size: 24px;
             letter-spacing: 10px;
             font-weight: bold;
-        }
-
-        .password-strength {
-            font-size: 11px;
-            margin-top: 4px;
-            color: #666;
         }
 
         .step-indicator {
@@ -605,6 +656,12 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
     </style>
 </head>
 <body>
+    <!-- DEBUG PANEL -->
+    <div class="debug-panel">
+        <strong>DEBUG MODE</strong><br>
+        <?php echo $debug_info; ?>
+    </div>
+
     <div class="login-container">
         <div class="logo">
             <img src="images/pikkit logo.png" alt="Pikkit Logo">
@@ -619,7 +676,6 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
         <?php endif; ?>
         
-        <!-- Google Sign In -->
         <div id="g_id_onload"
              data-client_id="863511518630-t4oj6ktd9net7g1pj9a8etrot6ict9md.apps.googleusercontent.com"
              data-callback="handleCredentialResponse"
@@ -632,7 +688,6 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             <span>OR</span>
         </div>
         
-        <!-- Manual Login Form -->
         <form method="POST" action="">
             <div class="form-group">
                 <label for="username">Username</label>
@@ -642,7 +697,6 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             <div class="form-group">
                 <label for="email">Gmail Address</label>
                 <input type="email" id="email" name="email" placeholder="yourname@gmail.com" required>
-                <div class="gmail-hint">Only Gmail addresses (@gmail.com) are accepted</div>
             </div>
             
             <div class="form-group">
@@ -662,10 +716,8 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
         </div>
     </div>
     
-    <!-- Forgot Password Modal -->
     <div id="forgotModal" class="modal <?php echo ($showOtpForm || $showResetForm) ? 'active' : ''; ?>">
         <div class="modal-content">
-            <!-- Step Indicator -->
             <div class="step-indicator">
                 <div class="step <?php echo (!$showOtpForm && !$showResetForm) ? 'active' : 'completed'; ?>">1</div>
                 <div class="step <?php echo $showOtpForm ? 'active' : ($showResetForm ? 'completed' : ''); ?>">2</div>
@@ -687,12 +739,10 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             </div>
             
             <?php if($showResetForm): ?>
-                <!-- PASSWORD RESET FORM -->
                 <form method="POST" action="">
                     <div class="form-group">
                         <label for="new_password">New Password</label>
                         <input type="password" id="new_password" name="new_password" minlength="6" required>
-                        <div class="password-strength">Must be at least 6 characters</div>
                     </div>
                     <div class="form-group">
                         <label for="confirm_password">Confirm New Password</label>
@@ -702,23 +752,19 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
                     <button type="button" class="btn close-modal" onclick="closeForgotModal()">Cancel</button>
                 </form>
             <?php elseif($showOtpForm): ?>
-                <!-- OTP FORM -->
                 <form method="POST" action="">
                     <div class="form-group">
                         <label for="otp">Enter 6-digit OTP</label>
                         <input type="text" id="otp" name="otp" class="otp-input" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required>
-                        <div class="gmail-hint">Check your Gmail inbox for the OTP code (expires in 15 minutes)</div>
                     </div>
                     <button type="submit" name="verify_otp" class="btn btn-primary">Verify OTP</button>
                     <button type="button" class="btn close-modal" onclick="closeForgotModal()">Cancel</button>
                 </form>
             <?php else: ?>
-                <!-- EMAIL FORM -->
                 <form method="POST" action="">
                     <div class="form-group">
                         <label for="forgot_email">Enter your Gmail address</label>
                         <input type="email" id="forgot_email" name="forgot_email" placeholder="yourname@gmail.com" required>
-                        <div class="gmail-hint">Only Gmail addresses (@gmail.com) are accepted</div>
                     </div>
                     <button type="submit" name="send_otp" class="btn btn-primary">Send OTP</button>
                     <button type="button" class="btn close-modal" onclick="closeForgotModal()">Cancel</button>
@@ -751,13 +797,9 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
                         alert('WARNING: ' + data.message);
                         window.location.href = 'registration.php';
                     } else {
-                        alert('WARNING: ' + (data.message || 'Google login failed. Please try again.'));
+                        alert('WARNING: ' + (data.message || 'Google login failed.'));
                     }
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred. Please try again.');
             });
         }
         
@@ -784,36 +826,13 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             if(e.target === this) closeForgotModal();
         });
         
-        document.getElementById('email').addEventListener('blur', function() {
-            const email = this.value.toLowerCase().trim();
-            if(email && !email.endsWith('@gmail.com')) {
-                alert('WARNING: Please use a Gmail address (@gmail.com)');
-                this.focus();
-            }
-        });
-        
-        if(document.getElementById('forgot_email')) {
-            document.getElementById('forgot_email').addEventListener('blur', function() {
-                const email = this.value.toLowerCase().trim();
-                if(email && !email.endsWith('@gmail.com')) {
-                    alert('WARNING: Please use a Gmail address (@gmail.com)');
-                    this.focus();
-                }
-            });
-        }
-        
         if(document.getElementById('otp')) {
             const otpInput = document.getElementById('otp');
-            
             otpInput.addEventListener('input', function(e) {
                 this.value = this.value.replace(/[^0-9]/g, '');
                 if(this.value.length > 6) {
                     this.value = this.value.slice(0, 6);
                 }
-            });
-            
-            otpInput.addEventListener('focus', function() {
-                this.style.letterSpacing = '5px';
             });
         }
 
@@ -821,7 +840,6 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
             document.getElementById('confirm_password').addEventListener('input', function() {
                 const newPass = document.getElementById('new_password').value;
                 const confirmPass = this.value;
-                
                 if(confirmPass && newPass !== confirmPass) {
                     this.setCustomValidity('Passwords do not match');
                 } else {
@@ -832,6 +850,4 @@ if(!$showOtpForm && !$showResetForm && isset($_SESSION['forgot_email'])) {
     </script>
 </body>
 </html>
-<?php
-ob_end_flush();
-?>
+<?php ob_end_flush(); ?>
