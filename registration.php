@@ -304,32 +304,39 @@ if(isset($_POST['register'])) {
     
     <script>
         function handleCredentialResponse(response) {
-            console.log("Google Sign-Up response received");
-            
-            // Send the ID token to your server
-            fetch('google_auth.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    credential: response.credential
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                console.log("Server response:", data);
-                if(data.success) {
-                    window.location.href = 'index.php';
-                } else {
-                    alert('Google sign up failed: ' + (data.message || 'Please try again.'));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred. Please try again.');
-            });
+    console.log("Google Sign-Up response received");
+    
+    // Send the ID token to the REGISTRATION endpoint (not google_auth.php)
+    fetch('google_register.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            credential: response.credential
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log("Server response:", data);
+        if(data.success) {
+            // Registration successful - redirect to home
+            window.location.href = 'index.php';
+        } else {
+            // Check if we should redirect to login
+            if(data.redirect === 'login.php') {
+                alert(data.message);
+                window.location.href = 'login.php';
+            } else {
+                alert('Google sign up failed: ' + (data.message || 'Please try again.'));
+            }
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+    });
+}
     </script>
 </body>
 </html>

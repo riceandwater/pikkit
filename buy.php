@@ -29,7 +29,7 @@ if($productId <= 0) {
 // Fetch product details
 try {
     $stmt = $pdo->prepare("
-        SELECT p.*, u.name as seller_name 
+        SELECT p.*, u.name as seller_name, u.email as seller_email 
         FROM products p 
         JOIN users u ON p.seller_id = u.id 
         WHERE p.id = ?
@@ -98,35 +98,65 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
     
     if(empty($errors)) {
         try {
-            $totalPrice = $product['price'] * $quantity;
+            $pdo->beginTransaction();
             
-            // Insert order - matching your database column names
+            $totalAmount = $product['price'] * $quantity;
+            $orderNumber = 'ORD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
+            
+            // Set initial order status
+            $orderStatus = 'pending';
+            
+            // Insert into orders table
             $stmt = $pdo->prepare("
-                INSERT INTO buyers (
-                    user_id, product_id, quantity, total_price, 
-                    buyer_name, buyer_email, buyer_phone, shipping_address,
-                    payment_method, status, purchase_date
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+                INSERT INTO orders (
+                    user_id, order_number, order_status, total_amount, created_at
+                ) VALUES (?, ?, ?, ?, NOW())
             ");
             $stmt->execute([
-                $userId, $productId, $quantity, $totalPrice,
-                $buyerName, $buyerEmail, $buyerPhone, $shippingAddress,
-                $paymentMethod
+                $userId, 
+                $orderNumber, 
+                $orderStatus, 
+                $totalAmount
             ]);
             
             $orderId = $pdo->lastInsertId();
+            
+            // Insert into order_items table
+            $stmt = $pdo->prepare("
+                INSERT INTO order_items (
+                    order_id, product_id, seller_id, product_name, 
+                    product_price, quantity, subtotal, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([
+                $orderId,
+                $productId,
+                $product['seller_id'],
+                $product['name'],
+                $product['price'],
+                $quantity,
+                $totalAmount
+            ]);
+            
+            // Insert into buyers table for detailed buyer information
+            $stmt = $pdo->prepare("
+                INSERT INTO buyers (
+                    user_id, product_id, quantity, total_price,
+                    buyer_name, buyer_email, buyer_phone, shipping_address,
+                    payment_method, status, purchase_date
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([
+                $userId, $productId, $quantity, $totalAmount,
+                $buyerName, $buyerEmail, $buyerPhone, $shippingAddress,
+                $paymentMethod, 'pending'
+            ]);
             
             // Update product stock
             $stmt = $pdo->prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
             $stmt->execute([$quantity, $productId]);
             
-            // Update seller's total sales
-            $stmt = $pdo->prepare("
-                INSERT INTO sellers (user_id, total_products, total_sales) 
-                VALUES (?, 1, ?) 
-                ON DUPLICATE KEY UPDATE total_sales = total_sales + ?
-            ");
-            $stmt->execute([$product['seller_id'], $totalPrice, $totalPrice]);
+            $pdo->commit();
             
             // Redirect based on payment method
             if($paymentMethod === 'Esewa') {
@@ -138,7 +168,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             }
             
         } catch(PDOException $e) {
+            $pdo->rollBack();
             $errors[] = "Order failed. Please try again.";
+            error_log("Order error: " . $e->getMessage());
         }
     }
 }
@@ -519,7 +551,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
     <header class="header">
         <div class="header-content">
             <a href="index.php" class="logo">PikKiT</a>
-            <a href="index.php" class="back-btn">Back to shop</a>
+            <a href="product_detail.php?id=<?php echo $productId; ?>" class="back-btn">Back to Product</a>
         </div>
     </header>
     
@@ -554,7 +586,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                 <div class="form-group">
                     <label class="form-label">Phone Number *</label>
                     <input type="tel" name="buyer_phone" class="form-input" 
-                           value="<?php echo isset($_POST['buyer_phone']) ? htmlspecialchars($_POST['buyer_phone']) : ''; ?>" 
+                           value="<?php echo isset($_POST['buyer_phone']) ? htmlspecialchars($_POST['buyer_phone']) : ($user && !empty($user['phone']) ? htmlspecialchars($user['phone']) : ''); ?>" 
                            placeholder="98XXXXXXXX" required>
                 </div>
                 

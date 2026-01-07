@@ -1039,7 +1039,6 @@ try {
                 <!-- Quick Actions -->
                 <div class="panel-actions">
                     <a href="sell_product.php" class="panel-btn">
-                        <div class="panel-btn-icon"></div>
                         <span>Sell</span>
                     </a>
                 </div>
@@ -1066,7 +1065,7 @@ try {
                                 maxlength="50"
                             >
                             <button type="submit" name="create_pocket" class="create-btn">
-                                ➕ Create Pocket
+                                 Create Pocket
                             </button>
                         </form>
                     </div>
@@ -1094,7 +1093,7 @@ try {
                 </div>
                 <div class="panel-actions">
                     <a href="login.php" class="panel-btn" onclick="alert('Please login to sell products'); return false;">
-                        <div class="panel-btn-icon">🏷️</div>
+                        <div class="panel-btn-icon"></div>
                         <span>Sell</span>
                     </a>
                 </div>

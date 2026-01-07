@@ -280,7 +280,25 @@ if(isset($_GET['logout'])) {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
         }
+         .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--secondary-gray);
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 2px solid var(--border-color);
+            transition: var(--transition);
+        }
         
+        .back-link:hover {
+            border-color: var(--primary-pink);
+            color: var(--accent-pink);
+            background: rgba(255, 182, 217, 0.05);
+            transform: translateX(-4px);
+        }
         .user-menu {
             position: relative;
         }
@@ -911,19 +929,10 @@ if(isset($_GET['logout'])) {
             
             <div class="header-actions">
                 <a href="sell_product.php" class="btn btn-primary">Sell New Product</a>
+                        <a href="index.php" class="back-link">← Back to Home</a>
+
                 
-                <div class="user-menu">
-                    <div class="user-btn">
-                        <div class="user-avatar"><?php echo strtoupper(substr($userName, 0, 1)); ?></div>
-                        <span><?php echo htmlspecialchars($userName); ?></span>
-                    </div>
-                    <div class="user-dropdown">
-                        <a href="profile.php">My Profile</a>
-                        <a href="my_orders.php">My Orders</a>
-                        <a href="my_products.php">My Products</a>
-                        <a href="pocket.php">My Pocket</a>
-                        <a href="index.php?logout=1">Logout</a>
-                    </div>
+            
                 </div>
             </div>
         </div>

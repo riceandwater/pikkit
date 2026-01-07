@@ -94,73 +94,57 @@ try {
         throw new Exception('Only Gmail addresses are allowed');
     }
     
-    // Check if user exists - MUST BE REGISTERED FIRST
+    // Check if user already exists
     $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
     $stmt->execute([$email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $existing_user = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if($user) {
-        // User exists - update Google info if needed
-        $updateNeeded = false;
-        $updateFields = [];
-        $updateValues = [];
-        
-        if(empty($user['google_id'])) {
-            $updateFields[] = "google_id = ?";
-            $updateValues[] = $google_id;
-            $updateNeeded = true;
-        }
-        
-        if($picture && $user['profile_picture'] !== $picture) {
-            $updateFields[] = "profile_picture = ?";
-            $updateValues[] = $picture;
-            $updateNeeded = true;
-        }
-        
-        if($updateNeeded) {
-            $updateValues[] = $user['id'];
-            $sql = "UPDATE users SET " . implode(", ", $updateFields) . " WHERE id = ?";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute($updateValues);
-        }
-        
-        // Regenerate session ID to prevent session fixation
-        session_regenerate_id(true);
-        
-        // Log the user in
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['user_name'] = $user['name'];
-        $_SESSION['user_email'] = $user['email'];
-        
-        echo json_encode([
-            'success' => true, 
-            'message' => 'Login successful',
-            'user' => [
-                'name' => $user['name'],
-                'email' => $user['email']
-            ]
-        ]);
-    } else {
-        // User NOT registered - reject login attempt
+    if($existing_user) {
+        // User already exists - redirect to login
         echo json_encode([
             'success' => false, 
-            'message' => 'This email is not registered. Please create an account first.',
-            'redirect' => 'registration.php',
-            'email' => $email
+            'message' => 'This email is already registered. Please login instead.',
+            'redirect' => 'login.php'
         ]);
+    } else {
+        // Create new user
+        $stmt = $pdo->prepare("INSERT INTO users (name, email, google_id, profile_picture, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
+        
+        if($stmt->execute([$name, $email, $google_id, $picture])) {
+            $user_id = $pdo->lastInsertId();
+            
+            // Regenerate session ID to prevent session fixation
+            session_regenerate_id(true);
+            
+            // Log the user in
+            $_SESSION['user_id'] = $user_id;
+            $_SESSION['user_name'] = $name;
+            $_SESSION['user_email'] = $email;
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Registration successful',
+                'user' => [
+                    'name' => $name,
+                    'email' => $email
+                ]
+            ]);
+        } else {
+            throw new Exception('Failed to create user account');
+        }
     }
     
 } catch(PDOException $e) {
-    error_log('Database Error in Google Auth: ' . $e->getMessage());
+    error_log('Database Error in Google Registration: ' . $e->getMessage());
     echo json_encode([
         'success' => false, 
         'message' => 'A database error occurred. Please try again.'
     ]);
 } catch(Exception $e) {
-    error_log('Google Auth Error: ' . $e->getMessage());
+    error_log('Google Registration Error: ' . $e->getMessage());
     echo json_encode([
         'success' => false, 
-        'message' => 'Authentication failed. Please try again.'
+        'message' => 'Registration failed. Please try again.'
     ]);
 }
 ?>

@@ -92,10 +92,10 @@ function sendOtpEmail($to_email, $otp) {
     }
 }
 
-// Handle manual login
+// Handle manual login - REGISTRATION CHECK ENFORCED
 if(isset($_POST['manual_login'])) {
     $username = trim($_POST['username']);
-    $email = trim($_POST['email']);
+    $email = strtolower(trim($_POST['email']));
     $pass = $_POST['password'];
     
     if(empty($username) || empty($email) || empty($pass)) {
@@ -103,26 +103,37 @@ if(isset($_POST['manual_login'])) {
     } elseif(!isValidGmail($email)) {
         $error = "Please use a valid Gmail address (@gmail.com)";
     } else {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND name = ?");
-        $stmt->execute([$email, $username]);
+        // First check if the email is registered
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+        $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if($user && password_verify($pass, $user['password'])) {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['user_name'] = $user['name'];
-            $_SESSION['user_email'] = $user['email'];
-            header("Location: index.php");
-            ob_end_flush();
-            exit();
+        if(!$user) {
+            // Email not registered
+            $error = "This email is not registered. Please <a href='registration.php' style='color: #333; font-weight: bold;'>create an account</a> first.";
         } else {
-            $error = "Invalid username, email or password";
+            // Email exists - now verify username and password
+            if($user['name'] !== $username) {
+                $error = "Invalid username or password";
+            } elseif(!password_verify($pass, $user['password'])) {
+                $error = "Invalid username or password";
+            } else {
+                // Login successful
+                session_regenerate_id(true);
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_name'] = $user['name'];
+                $_SESSION['user_email'] = $user['email'];
+                header("Location: index.php");
+                ob_end_flush();
+                exit();
+            }
         }
     }
 }
 
 // STEP 1: Send OTP
 if(isset($_POST['send_otp'])) {
-    $email = trim($_POST['forgot_email']);
+    $email = strtolower(trim($_POST['forgot_email']));
     
     if(!isValidGmail($email)) {
         $error = "Please use a valid Gmail address (@gmail.com)";
@@ -159,7 +170,6 @@ if(isset($_POST['send_otp'])) {
 }
 
 // STEP 2: Verify OTP
-// STEP 2: Verify OTP
 if(isset($_POST['verify_otp'])) {
     $email = $_SESSION['forgot_email'] ?? '';
     $entered_otp = preg_replace('/\s+/', '', trim($_POST['otp']));
@@ -183,7 +193,6 @@ if(isset($_POST['verify_otp'])) {
             $_SESSION['reset_step'] = 'password';
             $success = "OTP verified! Please create your new password.";
             $showResetForm = true; // SHOW RESET FORM DIRECTLY
-            // DON'T REDIRECT - just show the form
         } else {
             // Check if OTP exists but is expired
             $stmt = $pdo->prepare("SELECT * FROM otp_codes WHERE email = ? AND otp = ?");
@@ -247,6 +256,7 @@ if(isset($_POST['reset_password'])) {
                 unset($_SESSION['reset_step']);
                 
                 // Log user in automatically
+                session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['name'];
                 $_SESSION['user_email'] = $user['email'];
@@ -276,8 +286,6 @@ if(isset($_SESSION['forgot_email']) && !$showOtpForm && !$showResetForm) {
     }
 }
 
-// Handle URL parameter for step (after redirect)
-// You can remove this entire section or simplify it:
 // Handle URL parameter for step (after redirect)
 if(isset($_GET['step']) && $_GET['step'] === 'reset') {
     if(isset($_SESSION['otp_verified']) && $_SESSION['otp_verified'] && isset($_SESSION['forgot_email'])) {
@@ -368,6 +376,11 @@ if(isset($_GET['step']) && $_GET['step'] === 'reset') {
             background-color: #fee;
             color: #c33;
             border: 1px solid #fcc;
+        }
+
+        .alert-error a {
+            color: #c33;
+            text-decoration: underline;
         }
         
         .alert-success {
@@ -622,7 +635,7 @@ if(isset($_GET['step']) && $_GET['step'] === 'reset') {
         </div>
         
         <?php if($error): ?>
-            <div class="alert alert-error"><?php echo htmlspecialchars($error); ?></div>
+            <div class="alert alert-error"><?php echo $error; ?></div>
         <?php endif; ?>
         
         <?php if($success): ?>
@@ -758,7 +771,13 @@ if(isset($_GET['step']) && $_GET['step'] === 'reset') {
                 if(data.success) {
                     window.location.href = 'index.php';
                 } else {
-                    alert('Google login failed: ' + (data.message || 'Please try again.'));
+                    // Check if we need to redirect to registration
+                    if(data.redirect === 'registration.php') {
+                        alert('⚠️ ' + data.message);
+                        window.location.href = 'registration.php';
+                    } else {
+                        alert('⚠️ ' + (data.message || 'Google login failed. Please try again.'));
+                    }
                 }
             })
             .catch(error => {
