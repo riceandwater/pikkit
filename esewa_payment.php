@@ -348,7 +348,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_payment'])) {
         </form>
         
         <div class="security-note">
-            🔒 Secured by eSewa Demo Gateway
+             Secured by eSewa Demo Gateway
         </div>
     </div>
 </body>

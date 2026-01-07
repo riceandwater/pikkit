@@ -983,11 +983,11 @@ if(isset($_GET['logout'])) {
                                          alt="<?php echo htmlspecialchars($product['name']); ?>"
                                          id="preview-<?php echo $product['id']; ?>">
                                 <?php else: ?>
-                                    <div class="product-image-placeholder" id="preview-<?php echo $product['id']; ?>">📦</div>
+                                    <div class="product-image-placeholder" id="preview-<?php echo $product['id']; ?>"></div>
                                 <?php endif; ?>
                                 
                                 <label for="image-<?php echo $product['id']; ?>" class="image-upload-overlay">
-                                    <div class="upload-icon">📷</div>
+                                    <div class="upload-icon"></div>
                                     <div class="upload-text">Click to change image</div>
                                 </label>
                                 <input 
@@ -1107,7 +1107,7 @@ if(isset($_GET['logout'])) {
         <?php else: ?>
             <!-- Empty State -->
             <div class="empty-state">
-                <div class="empty-icon">📦</div>
+                <div class="empty-icon"></div>
                 <h3>No Products Yet</h3>
                 <p>You haven't listed any products. Start selling today!</p>
                 <a href="sell_product.php" class="btn btn-primary">List Your First Product</a>
@@ -1119,7 +1119,7 @@ if(isset($_GET['logout'])) {
     <div class="modal-overlay" id="deleteModal">
         <div class="modal">
             <div class="modal-header">
-                <div class="modal-icon">⚠️</div>
+                <div class="modal-icon"></div>
                 <h3>Delete Product?</h3>
                 <p>Are you sure you want to delete "<strong id="productNameToDelete"></strong>"? This action cannot be undone and the product image will also be permanently deleted.</p>
             </div>

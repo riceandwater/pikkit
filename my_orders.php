@@ -17,45 +17,65 @@ $searchQuery = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // Build query based on filters
 try {
-    $sql = "SELECT o.*, p.name as product_name, p.image as product_image, p.price as unit_price, u.name as seller_name 
-            FROM orders o 
-            JOIN products p ON o.product_id = p.id 
-            JOIN users u ON p.seller_id = u.id 
+    $sql = "SELECT 
+                o.id as order_id,
+                o.order_number,
+                o.order_status,
+                o.created_at,
+                o.total_amount as order_total,
+                oi.id as item_id,
+                oi.product_id,
+                oi.product_name,
+                oi.product_price,
+                oi.quantity,
+                oi.subtotal,
+                p.image as product_image,
+                u.name as seller_name
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            LEFT JOIN products p ON oi.product_id = p.id
+            LEFT JOIN users u ON oi.seller_id = u.id
             WHERE o.user_id = ?";
     
     $params = [$userId];
     
     // Add status filter
     if($filterStatus !== 'all') {
-        $sql .= " AND o.status = ?";
+        $sql .= " AND o.order_status = ?";
         $params[] = $filterStatus;
     }
     
     // Add search filter
     if($searchQuery) {
-        $sql .= " AND p.name LIKE ?";
+        $sql .= " AND oi.product_name LIKE ?";
         $params[] = "%$searchQuery%";
     }
     
-    $sql .= " ORDER BY o.purchase_date DESC";
+    $sql .= " ORDER BY o.created_at DESC";
     
     $stmt = $conn->prepare($sql);
     $stmt->execute($params);
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Get order statistics
-    $statsStmt = $conn->prepare("
-        SELECT 
-            COUNT(*) as total_orders,
-            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_orders,
-            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_orders,
-            SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_orders,
-            SUM(total_price) as total_spent
-        FROM orders 
-        WHERE user_id = ?
-    ");
-    $statsStmt->execute([$userId]);
-    $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+ // First, execute the orders query and get results
+$stmt = $conn->prepare($sql);
+$stmt->execute($params);
+$orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Now get order statistics with a new statement
+$statsStmt = $conn->prepare("
+    SELECT 
+        COUNT(DISTINCT o.id) as total_orders,
+        SUM(CASE WHEN o.order_status = 'pending' THEN 1 ELSE 0 END) as pending_orders,
+        SUM(CASE WHEN o.order_status = 'confirmed' THEN 1 ELSE 0 END) as completed_orders,
+        SUM(CASE WHEN o.order_status = 'failed' THEN 1 ELSE 0 END) as cancelled_orders,
+        COALESCE(SUM(o.total_amount), 0) as total_spent
+    FROM orders o
+    WHERE o.user_id = ?
+");
+$statsStmt->execute([$userId]);
+$stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
     
     // Ensure stats have default values if no orders exist
     if(!$stats || $stats['total_orders'] == 0) {
@@ -415,13 +435,25 @@ try {
             border: 2px solid rgba(255, 193, 7, 0.3);
         }
         
-        .status-completed {
+        .status-confirmed {
             background: rgba(40, 167, 69, 0.15);
             color: #1e7e34;
             border: 2px solid rgba(40, 167, 69, 0.3);
         }
         
-        .status-cancelled {
+        .status-processing {
+            background: rgba(23, 162, 184, 0.15);
+            color: #117a8b;
+            border: 2px solid rgba(23, 162, 184, 0.3);
+        }
+        
+        .status-shipped {
+            background: rgba(111, 66, 193, 0.15);
+            color: #5a3296;
+            border: 2px solid rgba(111, 66, 193, 0.3);
+        }
+        
+        .status-failed {
             background: rgba(220, 53, 69, 0.15);
             color: #bd2130;
             border: 2px solid rgba(220, 53, 69, 0.3);
@@ -637,7 +669,7 @@ try {
             </div>
             <div class="stat-card">
                 <div class="stat-label">Total Spent</div>
-                <div class="stat-value">Rs. <?php echo number_format($stats['total_spent']); ?></div>
+                <div class="stat-value">Rs. <?php echo number_format($stats['total_spent'], 2); ?></div>
             </div>
         </div>
         
@@ -649,8 +681,10 @@ try {
                         <select name="status" class="filter-select" onchange="this.form.submit()">
                             <option value="all" <?php echo $filterStatus === 'all' ? 'selected' : ''; ?>>All Orders</option>
                             <option value="pending" <?php echo $filterStatus === 'pending' ? 'selected' : ''; ?>>Pending</option>
-                            <option value="completed" <?php echo $filterStatus === 'completed' ? 'selected' : ''; ?>>Completed</option>
-                            <option value="cancelled" <?php echo $filterStatus === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
+                            <option value="confirmed" <?php echo $filterStatus === 'confirmed' ? 'selected' : ''; ?>>Confirmed</option>
+                            <option value="processing" <?php echo $filterStatus === 'processing' ? 'selected' : ''; ?>>Processing</option>
+                            <option value="shipped" <?php echo $filterStatus === 'shipped' ? 'selected' : ''; ?>>Shipped</option>
+                            <option value="failed" <?php echo $filterStatus === 'failed' ? 'selected' : ''; ?>>Failed</option>
                         </select>
                     </div>
                     <div class="filter-group">
@@ -671,7 +705,7 @@ try {
         <div class="orders-section">
             <div class="orders-header">
                 <h2 class="orders-title">Order History</h2>
-                <span class="orders-count"><?php echo count($orders); ?> <?php echo count($orders) === 1 ? 'order' : 'orders'; ?></span>
+                <span class="orders-count"><?php echo count($orders); ?> <?php echo count($orders) === 1 ? 'item' : 'items'; ?></span>
             </div>
             
             <?php if(count($orders) > 0): ?>
@@ -680,11 +714,11 @@ try {
                         <div class="order-card">
                             <div class="order-header-row">
                                 <div class="order-info">
-                                    <div class="order-id">Order #<?php echo str_pad($order['id'], 6, '0', STR_PAD_LEFT); ?></div>
-                                    <div class="order-date"><?php echo date('M d, Y g:i A', strtotime($order['purchase_date'])); ?></div>
+                                    <div class="order-id">Order #<?php echo htmlspecialchars($order['order_number']); ?></div>
+                                    <div class="order-date"><?php echo date('M d, Y g:i A', strtotime($order['created_at'])); ?></div>
                                 </div>
-                                <div class="order-status status-<?php echo $order['status']; ?>">
-                                    <?php echo ucfirst($order['status']); ?>
+                                <div class="order-status status-<?php echo htmlspecialchars($order['order_status']); ?>">
+                                    <?php echo ucfirst(htmlspecialchars($order['order_status'])); ?>
                                 </div>
                             </div>
                             
@@ -705,18 +739,20 @@ try {
                                         </div>
                                         <div class="meta-item">
                                             <span class="meta-label">Unit Price</span>
-                                            <span class="meta-value">Rs. <?php echo number_format($order['unit_price']); ?></span>
+                                            <span class="meta-value">Rs. <?php echo number_format($order['product_price'], 2); ?></span>
                                         </div>
+                                        <?php if(!empty($order['seller_name'])): ?>
                                         <div class="meta-item">
                                             <span class="meta-label">Seller</span>
                                             <span class="meta-value seller-name"><?php echo htmlspecialchars($order['seller_name']); ?></span>
                                         </div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 
                                 <div class="order-price">
-                                    <div class="price-label">Total Price</div>
-                                    <div class="price-value">Rs. <?php echo number_format($order['total_price']); ?></div>
+                                    <div class="price-label">Subtotal</div>
+                                    <div class="price-value">Rs. <?php echo number_format($order['subtotal'], 2); ?></div>
                                 </div>
                             </div>
                         </div>

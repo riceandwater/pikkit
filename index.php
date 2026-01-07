@@ -962,7 +962,7 @@ try {
 <body>
     <!-- Panel Toggle Button -->
     <button class="panel-toggle" id="panelToggle" onclick="togglePanel()">
-        <span id="toggleIcon">☰</span>
+        <span id="toggleIcon">></span>
     </button>
     
     <!-- Panel Overlay -->
@@ -973,6 +973,8 @@ try {
         <div class="panel-header">
             <div class="panel-logo">PikKiT</div>
             <button class="panel-close" onclick="togglePanel()">✕</button>
+                    <span> Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>!</span>
+
         </div>
         
         <div class="panel-content">
@@ -1152,7 +1154,7 @@ try {
                     productsSection.classList.add('shifted');
                 }
             } else {
-                toggleIcon.textContent = '☰';
+                toggleIcon.textContent = '>';
                 productsSection.classList.remove('shifted');
             }
         }
@@ -1232,7 +1234,7 @@ try {
                         panel.classList.remove('active');
                         overlay.classList.remove('active');
                         toggle.classList.remove('active');
-                        toggleIcon.textContent = '☰';
+                        toggleIcon.textContent = '>';
                     }
                 });
             });

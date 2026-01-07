@@ -589,7 +589,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                             <label for="esewa" class="payment-label">
                                 <div class="payment-icon"></div>
                                 <div class="payment-details">
-                                    <div class="payment-name">eSewa (Demo)</div>
+                                    <div class="payment-name">eSewa</div>
                                     <div class="payment-desc">Pay securely with eSewa wallet</div>
                                 </div>
                             </label>
