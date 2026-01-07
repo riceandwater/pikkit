@@ -41,6 +41,14 @@ try {
         header("Location: index.php");
         exit();
     }
+    
+    // Check if the logged-in user is the seller of this product
+    if($product['seller_id'] == $userId) {
+        $_SESSION['error_message'] = "You cannot purchase your own product";
+        header("Location: index.php");
+        exit();
+    }
+    
 } catch(PDOException $e) {
     die("Error loading product: " . $e->getMessage());
 }
@@ -523,7 +531,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             <?php if(!empty($errors)): ?>
                 <div class="alert alert-error">
                     <?php foreach($errors as $error): ?>
-                        • <?php echo htmlspecialchars($error); ?><br>
+                        <?php echo htmlspecialchars($error); ?><br>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>

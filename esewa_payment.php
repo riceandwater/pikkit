@@ -316,7 +316,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_payment'])) {
         </div>
         
         <div class="demo-note">
-            <strong>🎭 DEMO PAYMENT GATEWAY</strong>
+            <strong> DEMO PAYMENT GATEWAY</strong>
             This is a test environment. Use any credentials to complete the payment.
             <div class="demo-credentials">
                 eSewa ID: demo@esewa.com.np<br>

@@ -2,13 +2,6 @@
 session_start();
 include 'dbconnect.php';
 
-try {
-    $pdo = new PDO("mysql:host=localhost;dbname=pikkit", "root", "");
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch(PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
-}
-
 if(!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
@@ -21,30 +14,77 @@ if($orderId <= 0) {
     exit();
 }
 
-// Fetch order details
+// Fetch order details from the orders and order_items tables
 try {
-    $stmt = $pdo->prepare("
-        SELECT b.*, p.name as product_name, p.image as product_image, p.price as unit_price
-        FROM buyers b 
-        JOIN products p ON b.product_id = p.id 
-        WHERE b.id = ? AND b.user_id = ?
-    ");
-    $stmt->execute([$orderId, $_SESSION['user_id']]);
-    $order = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Get order header information
+    $orderQuery = "
+        SELECT 
+            o.id,
+            o.order_number,
+            o.user_id,
+            o.buyer_name,
+            o.buyer_email,
+            o.buyer_phone,
+            o.shipping_address,
+            o.payment_method,
+            o.payment_status,
+            o.order_status,
+            o.total_amount,
+            o.transaction_id,
+            o.created_at
+        FROM orders o
+        WHERE o.id = ? AND o.user_id = ?
+    ";
+    
+    $orderStmt = $conn->prepare($orderQuery);
+    $orderStmt->bind_param("ii", $orderId, $_SESSION['user_id']);
+    $orderStmt->execute();
+    $orderResult = $orderStmt->get_result();
+    $order = $orderResult->fetch_assoc();
+    $orderStmt->close();
     
     if(!$order) {
         header("Location: index.php");
         exit();
     }
     
-    // Update order status to processing if it was pending (for COD)
-    if($order['status'] === 'pending') {
-        $stmt = $pdo->prepare("UPDATE buyers SET status = 'processing' WHERE id = ?");
-        $stmt->execute([$orderId]);
-        $order['status'] = 'processing';
+    // Get order items with seller information
+    $itemsQuery = "
+        SELECT 
+            oi.id,
+            oi.product_id,
+            oi.product_name,
+            oi.product_price,
+            oi.quantity,
+            oi.subtotal,
+            p.image as product_image,
+            u.name as seller_name,
+            u.email as seller_email,
+            u.phone as seller_phone
+        FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
+        LEFT JOIN users u ON oi.seller_id = u.id
+        WHERE oi.order_id = ?
+    ";
+    
+    $itemsStmt = $conn->prepare($itemsQuery);
+    $itemsStmt->bind_param("i", $orderId);
+    $itemsStmt->execute();
+    $itemsResult = $itemsStmt->get_result();
+    $orderItems = $itemsResult->fetch_all(MYSQLI_ASSOC);
+    $itemsStmt->close();
+    
+    // Update order status from 'pending' to 'processing' after successful purchase
+    if($order['order_status'] === 'pending') {
+        $updateQuery = "UPDATE orders SET order_status = 'processing' WHERE id = ?";
+        $updateStmt = $conn->prepare($updateQuery);
+        $updateStmt->bind_param("i", $orderId);
+        $updateStmt->execute();
+        $updateStmt->close();
+        $order['order_status'] = 'processing';
     }
     
-} catch(PDOException $e) {
+} catch(Exception $e) {
     die("Error: " . $e->getMessage());
 }
 ?>
@@ -89,7 +129,7 @@ try {
             background: white;
             border-radius: 20px;
             padding: 50px 40px;
-            max-width: 600px;
+            max-width: 800px;
             width: 100%;
             box-shadow: var(--shadow-md);
             border: 2px solid var(--border-color);
@@ -187,23 +227,36 @@ try {
             color: var(--secondary-gray);
         }
         
+        .products-list {
+            margin-top: 20px;
+        }
+        
         .product-info {
             display: flex;
             gap: 15px;
             padding: 15px;
             background: white;
             border-radius: 10px;
-            margin-top: 15px;
+            margin-bottom: 12px;
             border: 2px solid var(--border-color);
+            align-items: flex-start;
+        }
+        
+        .product-info:last-child {
+            margin-bottom: 0;
         }
         
         .product-image {
-            width: 70px;
-            height: 70px;
+            width: 90px;
+            height: 90px;
             border-radius: 8px;
             overflow: hidden;
             flex-shrink: 0;
             border: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5f5f5;
         }
         
         .product-image img {
@@ -220,12 +273,58 @@ try {
         .product-name {
             font-weight: 600;
             font-size: 15px;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
+            line-height: 1.4;
         }
         
         .product-meta {
             font-size: 13px;
             color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .seller-info-inline {
+            background: #f0f8ff;
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+        
+        .seller-info-inline strong {
+            color: var(--accent-pink);
+            display: block;
+            margin-bottom: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .seller-contact {
+            color: #555;
+            line-height: 1.5;
+        }
+        
+        .contact-seller-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: linear-gradient(135deg, var(--primary-pink), var(--accent-pink));
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            transition: var(--transition);
+            margin-top: 8px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .contact-seller-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(255, 107, 157, 0.4);
         }
         
         .total-amount {
@@ -336,6 +435,11 @@ try {
             .product-details {
                 text-align: center;
             }
+            
+            .product-image {
+                width: 120px;
+                height: 120px;
+            }
         }
     </style>
 </head>
@@ -354,20 +458,25 @@ try {
             <div class="order-header">Order Details</div>
             
             <div class="detail-row">
-                <span class="detail-label">Order ID:</span>
-                <span class="detail-value">#<?php echo str_pad($order['id'], 6, '0', STR_PAD_LEFT); ?></span>
+                <span class="detail-label">Order Number:</span>
+                <span class="detail-value">#<?php echo htmlspecialchars($order['order_number']); ?></span>
             </div>
             
             <div class="detail-row">
                 <span class="detail-label">Order Date:</span>
-                <span class="detail-value"><?php echo date('M d, Y', strtotime($order['purchase_date'])); ?></span>
+                <span class="detail-value"><?php echo date('M d, Y g:i A', strtotime($order['created_at'])); ?></span>
+            </div>
+            
+            <div class="detail-row">
+                <span class="detail-label">Order Status:</span>
+                <span class="detail-value" style="color: #117a8b; font-weight: 700;">Processing</span>
             </div>
             
             <div class="detail-row">
                 <span class="detail-label">Payment Method:</span>
                 <span class="detail-value">
-                    <span class="payment-badge <?php echo $order['payment_method'] === 'COD' ? 'badge-cod' : 'badge-esewa'; ?>">
-                        <?php echo $order['payment_method'] === 'COD' ? 'Cash on Delivery' : 'eSewa'; ?>
+                    <span class="payment-badge <?php echo strtolower($order['payment_method']) === 'cod' ? 'badge-cod' : 'badge-esewa'; ?>">
+                        <?php echo strtolower($order['payment_method']) === 'cod' ? 'Cash on Delivery' : 'eSewa'; ?>
                     </span>
                 </span>
             </div>
@@ -384,32 +493,64 @@ try {
                 <span class="detail-value"><?php echo htmlspecialchars($order['shipping_address']); ?></span>
             </div>
             
-            <div class="product-info">
-                <div class="product-image">
-                    <?php if(!empty($order['product_image'])): ?>
-                        <img src="uploads/products/<?php echo htmlspecialchars($order['product_image']); ?>" alt="<?php echo htmlspecialchars($order['product_name']); ?>">
-                    <?php else: ?>
-                        <div style="width:100%;height:100%;background:#f0f0f0;"></div>
-                    <?php endif; ?>
-                </div>
-                <div class="product-details">
-                    <div class="product-name"><?php echo htmlspecialchars($order['product_name']); ?></div>
-                    <div class="product-meta">
-                        Quantity: <?php echo $order['quantity']; ?> × Rs. <?php echo number_format($order['unit_price']); ?>
+            <div class="products-list">
+                <?php foreach($orderItems as $item): ?>
+                <div class="product-info">
+                    <div class="product-image">
+                        <?php if(!empty($item['product_image'])): ?>
+                            <img src="uploads/products/<?php echo htmlspecialchars($item['product_image']); ?>" alt="<?php echo htmlspecialchars($item['product_name']); ?>">
+                        <?php else: ?>
+                            <span style="color: #999; font-size: 12px;">No Image</span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="product-details">
+                        <div class="product-name"><?php echo htmlspecialchars($item['product_name']); ?></div>
+                        <div class="product-meta">
+                            Quantity: <?php echo $item['quantity']; ?> × Rs. <?php echo number_format($item['product_price'], 2); ?> = Rs. <?php echo number_format($item['subtotal'], 2); ?>
+                        </div>
+                        
+                        <?php if(!empty($item['seller_name'])): ?>
+                        <div class="seller-info-inline">
+                            <strong>Seller Information</strong>
+                            <div class="seller-contact">
+                                <?php echo htmlspecialchars($item['seller_name']); ?>
+                                <?php if(!empty($item['seller_email'])): ?>
+                                <br>Email: <?php echo htmlspecialchars($item['seller_email']); ?>
+                                <?php endif; ?>
+                                <?php if(!empty($item['seller_phone'])): ?>
+                                <br>Phone: <?php echo htmlspecialchars($item['seller_phone']); ?>
+                                <?php endif; ?>
+                            </div>
+                            <?php if(!empty($item['seller_email'])): ?>
+                            <a href="https://mail.google.com/mail/?view=cm&fs=1&to=<?php echo urlencode($item['seller_email']); ?>&su=<?php echo urlencode('Question about Order #' . $order['order_number']); ?>&body=<?php echo urlencode('Hello ' . $item['seller_name'] . ',
+
+I have a question about my order:
+
+Order Number: #' . $order['order_number'] . '
+Product: ' . $item['product_name'] . '
+Order Date: ' . date('M d, Y', strtotime($order['created_at'])) . '
+
+'); ?>" target="_blank" class="contact-seller-btn">
+                                Contact via Gmail
+                            </a>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
+                <?php endforeach; ?>
             </div>
             
             <div class="total-amount">
                 <span>Total Paid:</span>
-                <span class="amount">Rs. <?php echo number_format($order['total_price']); ?></span>
+                <span class="amount">Rs. <?php echo number_format($order['total_amount'], 2); ?></span>
             </div>
         </div>
         
-        <?php if($order['payment_method'] === 'COD'): ?>
+        <?php if(strtolower($order['payment_method']) === 'cod'): ?>
         <div class="delivery-info">
-            <strong> Delivery Information</strong>
-            Please keep Rs. <?php echo number_format($order['total_price']); ?> ready in cash. 
+            <strong>Delivery Information</strong>
+            Please keep Rs. <?php echo number_format($order['total_amount'], 2); ?> ready in cash. 
             Our delivery partner will contact you at <?php echo htmlspecialchars($order['buyer_phone']); ?> 
             for delivery confirmation.
         </div>
@@ -422,6 +563,7 @@ try {
         <?php endif; ?>
         
         <div class="action-buttons">
+            <a href="my_orders.php" class="btn btn-secondary">View My Orders</a>
             <a href="index.php" class="btn btn-primary">Continue Shopping</a>
         </div>
     </div>

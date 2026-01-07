@@ -16,6 +16,26 @@ $userName = $isLoggedIn ? $_SESSION['user_name'] : '';
 $userEmail = $isLoggedIn ? $_SESSION['user_email'] : '';
 $userId = $isLoggedIn ? $_SESSION['user_id'] : null;
 
+// Fetch user profile picture if logged in
+$userProfilePicture = null;
+if($isLoggedIn) {
+    try {
+        $stmt = $pdo->prepare("SELECT profile_picture FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $userRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        $userProfilePicture = $userRow['profile_picture'] ?? null;
+    } catch(PDOException $e) {
+        // Continue without profile picture
+    }
+}
+
+// Get error message from session
+$errorMessage = '';
+if(isset($_SESSION['error_message'])) {
+    $errorMessage = $_SESSION['error_message'];
+    unset($_SESSION['error_message']);
+}
+
 // Handle logout
 if(isset($_GET['logout'])) {
     session_destroy();
@@ -311,6 +331,16 @@ try {
             justify-content: center;
             font-size: 16px;
             box-shadow: 0 2px 8px rgba(255, 107, 157, 0.3);
+            color: white;
+            font-weight: 700;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         
         .user-dropdown {
@@ -755,6 +785,35 @@ try {
             margin-left: 280px;
         }
         
+        .error-message-banner {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            font-size: 15px;
+            font-weight: 600;
+            border: 2px solid #f5c6cb;
+            animation: slideIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .close-error {
+            background: none;
+            border: none;
+            color: #721c24;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 8px;
+            transition: var(--transition);
+        }
+        
+        .close-error:hover {
+            transform: scale(1.2);
+        }
+        
         .products-header {
             margin-bottom: 32px;
         }
@@ -973,8 +1032,6 @@ try {
         <div class="panel-header">
             <div class="panel-logo">PikKiT</div>
             <button class="panel-close" onclick="togglePanel()">✕</button>
-                    <span> Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>!</span>
-
         </div>
         
         <div class="panel-content">
@@ -1009,7 +1066,7 @@ try {
                                 maxlength="50"
                             >
                             <button type="submit" name="create_pocket" class="create-btn">
-                                Create Pocket
+                                ➕ Create Pocket
                             </button>
                         </form>
                     </div>
@@ -1037,7 +1094,7 @@ try {
                 </div>
                 <div class="panel-actions">
                     <a href="login.php" class="panel-btn" onclick="alert('Please login to sell products'); return false;">
-                        <div class="panel-btn-icon"></div>
+                        <div class="panel-btn-icon">🏷️</div>
                         <span>Sell</span>
                     </a>
                 </div>
@@ -1069,13 +1126,19 @@ try {
             <div class="header-actions">
                 <?php if($isLoggedIn): ?>
                     <div class="user-menu">
-                        <div class="user-btn">
-                            <div class="user-avatar"></div>
+                        <div class="user-btn" onclick="toggleUserDropdown(event)">
+                            <div class="user-avatar">
+                                <?php if(!empty($userProfilePicture)): ?>
+                                    <img src="uploads/profiles/<?php echo htmlspecialchars($userProfilePicture); ?>" alt="<?php echo htmlspecialchars($userName); ?>">
+                                <?php else: ?>
+                                    <?php echo strtoupper(substr($userName, 0, 1)); ?>
+                                <?php endif; ?>
+                            </div>
                             <span><?php echo htmlspecialchars($userName); ?></span>
                         </div>
-                        <div class="user-dropdown">
+                        <div class="user-dropdown" id="userDropdown">
                             <a href="profile.php"> My Profile</a>
-                            <a href="my_orders.php">My Orders</a>
+                            <a href="my_orders.php"> My Orders</a>
                             <a href="my_products.php"> My Products</a>
                             <a href="pocket.php"> My Pocket</a>
                             <a href="index.php?logout=1"> Logout</a>
@@ -1093,6 +1156,13 @@ try {
     <div class="main-container">
         <!-- Products Section -->
         <main class="products-section" id="productsSection">
+            <?php if(!empty($errorMessage)): ?>
+                <div class="error-message-banner" id="errorBanner">
+                    <span><?php echo htmlspecialchars($errorMessage); ?></span>
+                    <button class="close-error" onclick="document.getElementById('errorBanner').remove()">✕</button>
+                </div>
+            <?php endif; ?>
+            
             <div class="products-header">
                 <h2><?php echo $searchQuery ? 'Search Results' : 'All Products'; ?></h2>
                 <p class="results-info">
@@ -1115,7 +1185,7 @@ try {
                                 <?php if(!empty($product['image'])): ?>
                                     <img src="uploads/products/<?php echo htmlspecialchars($product['image']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
                                 <?php else: ?>
-                                    <span style="color: #999; font-size: 48px;">📦</span>
+                                    <span style="color: #999; font-size: 48px;"></span>
                                 <?php endif; ?>
                             </div>
                             <div class="product-info">
@@ -1183,29 +1253,44 @@ try {
         searchInput.addEventListener('input', updateClearButton);
         updateClearButton();
         
-        // User Dropdown Toggle
-        document.addEventListener('DOMContentLoaded', function() {
+        // User Dropdown Toggle - Updated function
+        function toggleUserDropdown(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('userDropdown');
+            dropdown.classList.toggle('show');
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('userDropdown');
             const userBtn = document.querySelector('.user-btn');
-            const userDropdown = document.querySelector('.user-dropdown');
             
-            if(userBtn && userDropdown) {
-                // Toggle dropdown when clicking user button
-                userBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    userDropdown.classList.toggle('show');
-                });
-                
-                // Prevent dropdown from closing when clicking inside it
-                userDropdown.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                });
-                
-                // Close dropdown when clicking anywhere else on the page
-                document.addEventListener('click', function(e) {
-                    if(!userBtn.contains(e.target) && !userDropdown.contains(e.target)) {
-                        userDropdown.classList.remove('show');
-                    }
-                });
+            if(dropdown && userBtn) {
+                if(!userBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                }
+            }
+        });
+        
+        // Prevent dropdown from closing when clicking inside it
+        const userDropdown = document.getElementById('userDropdown');
+        if(userDropdown) {
+            userDropdown.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        }
+        
+        // Auto-hide error banner after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const errorBanner = document.getElementById('errorBanner');
+            if(errorBanner) {
+                setTimeout(function() {
+                    errorBanner.style.transition = 'opacity 0.5s ease';
+                    errorBanner.style.opacity = '0';
+                    setTimeout(function() {
+                        errorBanner.remove();
+                    }, 500);
+                }, 5000);
             }
         });
         

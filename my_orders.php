@@ -11,11 +11,7 @@ if(!isset($_SESSION['user_id'])) {
 $userId = $_SESSION['user_id'];
 $userName = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : '';
 
-// Get filter parameters
-$filterStatus = isset($_GET['status']) ? $_GET['status'] : 'all';
-$searchQuery = isset($_GET['search']) ? trim($_GET['search']) : '';
-
-// Build query based on filters
+// Build query to get orders with seller information
 try {
     $sql = "SELECT 
                 o.id as order_id,
@@ -30,52 +26,41 @@ try {
                 oi.quantity,
                 oi.subtotal,
                 p.image as product_image,
-                u.name as seller_name
+                u.name as seller_name,
+                u.email as seller_email,
+                u.phone as seller_phone
             FROM orders o
             JOIN order_items oi ON o.id = oi.order_id
             LEFT JOIN products p ON oi.product_id = p.id
             LEFT JOIN users u ON oi.seller_id = u.id
-            WHERE o.user_id = ?";
-    
-    $params = [$userId];
-    
-    // Add status filter
-    if($filterStatus !== 'all') {
-        $sql .= " AND o.order_status = ?";
-        $params[] = $filterStatus;
-    }
-    
-    // Add search filter
-    if($searchQuery) {
-        $sql .= " AND oi.product_name LIKE ?";
-        $params[] = "%$searchQuery%";
-    }
-    
-    $sql .= " ORDER BY o.created_at DESC";
+            WHERE o.user_id = ?
+            ORDER BY o.created_at DESC";
     
     $stmt = $conn->prepare($sql);
-    $stmt->execute($params);
-    $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $orders = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
     
     // Get order statistics
- // First, execute the orders query and get results
-$stmt = $conn->prepare($sql);
-$stmt->execute($params);
-$orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Now get order statistics with a new statement
-$statsStmt = $conn->prepare("
-    SELECT 
-        COUNT(DISTINCT o.id) as total_orders,
-        SUM(CASE WHEN o.order_status = 'pending' THEN 1 ELSE 0 END) as pending_orders,
-        SUM(CASE WHEN o.order_status = 'confirmed' THEN 1 ELSE 0 END) as completed_orders,
-        SUM(CASE WHEN o.order_status = 'failed' THEN 1 ELSE 0 END) as cancelled_orders,
-        COALESCE(SUM(o.total_amount), 0) as total_spent
-    FROM orders o
-    WHERE o.user_id = ?
-");
-$statsStmt->execute([$userId]);
-$stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+    $statsQuery = "
+        SELECT 
+            COUNT(DISTINCT o.id) as total_orders,
+            SUM(CASE WHEN o.order_status = 'pending' THEN 1 ELSE 0 END) as pending_orders,
+            SUM(CASE WHEN o.order_status = 'confirmed' THEN 1 ELSE 0 END) as completed_orders,
+            SUM(CASE WHEN o.order_status = 'failed' THEN 1 ELSE 0 END) as cancelled_orders,
+            COALESCE(SUM(o.total_amount), 0) as total_spent
+        FROM orders o
+        WHERE o.user_id = ?
+    ";
+    
+    $statsStmt = $conn->prepare($statsQuery);
+    $statsStmt->bind_param("i", $userId);
+    $statsStmt->execute();
+    $statsResult = $statsStmt->get_result();
+    $stats = $statsResult->fetch_assoc();
+    $statsStmt->close();
     
     // Ensure stats have default values if no orders exist
     if(!$stats || $stats['total_orders'] == 0) {
@@ -88,7 +73,7 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
         ];
     }
     
-} catch(PDOException $e) {
+} catch(Exception $e) {
     $orders = [];
     $stats = ['total_orders' => 0, 'pending_orders' => 0, 'completed_orders' => 0, 'cancelled_orders' => 0, 'total_spent' => 0];
     error_log("Error fetching orders: " . $e->getMessage());
@@ -260,89 +245,6 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
             letter-spacing: -1px;
         }
         
-        .filters-section {
-            background: white;
-            padding: 24px;
-            border-radius: 16px;
-            box-shadow: var(--shadow-sm);
-            border: 2px solid var(--border-color);
-            margin-bottom: 32px;
-        }
-        
-        .filters-row {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        
-        .filter-group {
-            flex: 1;
-            min-width: 200px;
-        }
-        
-        .filter-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--secondary-gray);
-            margin-bottom: 8px;
-            display: block;
-        }
-        
-        .filter-select {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid var(--border-color);
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 500;
-            background: white;
-            cursor: pointer;
-            transition: var(--transition);
-            font-family: inherit;
-        }
-        
-        .filter-select:focus {
-            outline: none;
-            border-color: var(--primary-pink);
-            box-shadow: 0 0 0 4px rgba(255, 182, 217, 0.15);
-        }
-        
-        .search-input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid var(--border-color);
-            border-radius: 10px;
-            font-size: 14px;
-            transition: var(--transition);
-            font-family: inherit;
-        }
-        
-        .search-input:focus {
-            outline: none;
-            border-color: var(--primary-pink);
-            box-shadow: 0 0 0 4px rgba(255, 182, 217, 0.15);
-        }
-        
-        .filter-btn {
-            padding: 12px 24px;
-            background: linear-gradient(135deg, var(--primary-pink), var(--accent-pink));
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: var(--transition);
-            font-family: inherit;
-            margin-top: 24px;
-        }
-        
-        .filter-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
-        }
-        
         .orders-section {
             background: white;
             border-radius: 16px;
@@ -462,12 +364,12 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
         .order-content {
             display: flex;
             gap: 20px;
-            align-items: center;
+            align-items: flex-start;
         }
         
         .order-product-image {
-            width: 100px;
-            height: 100px;
+            width: 120px;
+            height: 120px;
             border-radius: 12px;
             object-fit: cover;
             background: white;
@@ -483,7 +385,7 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
             font-size: 18px;
             font-weight: 700;
             color: var(--secondary-gray);
-            margin-bottom: 8px;
+            margin-bottom: 12px;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -494,7 +396,7 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
             display: flex;
             gap: 24px;
             flex-wrap: wrap;
-            margin-top: 12px;
+            margin-bottom: 16px;
         }
         
         .meta-item {
@@ -517,8 +419,66 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
             color: var(--secondary-gray);
         }
         
-        .seller-name {
-            color: var(--accent-pink);
+        .seller-info {
+            background: white;
+            padding: 16px;
+            border-radius: 10px;
+            border: 2px solid var(--border-color);
+            margin-top: 12px;
+        }
+        
+        .seller-header {
+            font-size: 13px;
+            color: #999;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        
+        .seller-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .seller-detail-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .seller-detail-label {
+            color: #666;
+            min-width: 60px;
+        }
+        
+        .seller-detail-value {
+            color: var(--secondary-gray);
+            font-weight: 600;
+        }
+        
+        .contact-seller-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            background: linear-gradient(135deg, var(--primary-pink), var(--accent-pink));
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            transition: var(--transition);
+            margin-top: 12px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .contact-seller-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 107, 157, 0.4);
         }
         
         .order-price {
@@ -596,14 +556,6 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                 grid-template-columns: 1fr;
             }
             
-            .filters-row {
-                flex-direction: column;
-            }
-            
-            .filter-group {
-                width: 100%;
-            }
-            
             .order-content {
                 flex-direction: column;
                 align-items: flex-start;
@@ -673,35 +625,6 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
             </div>
         </div>
         
-        <div class="filters-section">
-            <form method="GET" action="my_orders.php">
-                <div class="filters-row">
-                    <div class="filter-group">
-                        <label class="filter-label">Filter by Status</label>
-                        <select name="status" class="filter-select" onchange="this.form.submit()">
-                            <option value="all" <?php echo $filterStatus === 'all' ? 'selected' : ''; ?>>All Orders</option>
-                            <option value="pending" <?php echo $filterStatus === 'pending' ? 'selected' : ''; ?>>Pending</option>
-                            <option value="confirmed" <?php echo $filterStatus === 'confirmed' ? 'selected' : ''; ?>>Confirmed</option>
-                            <option value="processing" <?php echo $filterStatus === 'processing' ? 'selected' : ''; ?>>Processing</option>
-                            <option value="shipped" <?php echo $filterStatus === 'shipped' ? 'selected' : ''; ?>>Shipped</option>
-                            <option value="failed" <?php echo $filterStatus === 'failed' ? 'selected' : ''; ?>>Failed</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label class="filter-label">Search Products</label>
-                        <input 
-                            type="text" 
-                            name="search" 
-                            class="search-input" 
-                            placeholder="Search by product name..."
-                            value="<?php echo htmlspecialchars($searchQuery); ?>"
-                        >
-                    </div>
-                </div>
-                <button type="submit" class="filter-btn">Apply Filters</button>
-            </form>
-        </div>
-        
         <div class="orders-section">
             <div class="orders-header">
                 <h2 class="orders-title">Order History</h2>
@@ -726,7 +649,7 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                                 <?php if(!empty($order['product_image'])): ?>
                                     <img src="uploads/products/<?php echo htmlspecialchars($order['product_image']); ?>" alt="Product" class="order-product-image">
                                 <?php else: ?>
-                                    <div class="order-product-image" style="display: flex; align-items: center; justify-content: center; color: #999; font-size: 24px; font-weight: 600;">No Image</div>
+                                    <div class="order-product-image" style="display: flex; align-items: center; justify-content: center; color: #999; font-size: 18px; font-weight: 600;">No Image</div>
                                 <?php endif; ?>
                                 
                                 <div class="order-details">
@@ -741,13 +664,44 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                                             <span class="meta-label">Unit Price</span>
                                             <span class="meta-value">Rs. <?php echo number_format($order['product_price'], 2); ?></span>
                                         </div>
-                                        <?php if(!empty($order['seller_name'])): ?>
-                                        <div class="meta-item">
-                                            <span class="meta-label">Seller</span>
-                                            <span class="meta-value seller-name"><?php echo htmlspecialchars($order['seller_name']); ?></span>
+                                    </div>
+                                    
+                                    <?php if(!empty($order['seller_name'])): ?>
+                                    <div class="seller-info">
+                                        <div class="seller-header">Seller Information</div>
+                                        <div class="seller-details">
+                                            <div class="seller-detail-row">
+                                                <span class="seller-detail-label">Name:</span>
+                                                <span class="seller-detail-value"><?php echo htmlspecialchars($order['seller_name']); ?></span>
+                                            </div>
+                                            <?php if(!empty($order['seller_email'])): ?>
+                                            <div class="seller-detail-row">
+                                                <span class="seller-detail-label">Email:</span>
+                                                <span class="seller-detail-value"><?php echo htmlspecialchars($order['seller_email']); ?></span>
+                                            </div>
+                                            <?php endif; ?>
+                                            <?php if(!empty($order['seller_phone'])): ?>
+                                            <div class="seller-detail-row">
+                                                <span class="seller-detail-label">Phone:</span>
+                                                <span class="seller-detail-value"><?php echo htmlspecialchars($order['seller_phone']); ?></span>
+                                            </div>
+                                            <?php endif; ?>
                                         </div>
+                                        <?php if(!empty($order['seller_email'])): ?>
+                                        <a href="https://mail.google.com/mail/?view=cm&fs=1&to=<?php echo urlencode($order['seller_email']); ?>&su=<?php echo urlencode('Inquiry about Order #' . $order['order_number']); ?>&body=<?php echo urlencode('Hello ' . $order['seller_name'] . ',
+
+I have a question about my order:
+
+Order Number: #' . $order['order_number'] . '
+Product: ' . $order['product_name'] . '
+Order Date: ' . date('M d, Y', strtotime($order['created_at'])) . '
+
+'); ?>" target="_blank" class="contact-seller-btn">
+                                            Contact Seller via Gmail
+                                        </a>
                                         <?php endif; ?>
                                     </div>
+                                    <?php endif; ?>
                                 </div>
                                 
                                 <div class="order-price">
@@ -762,17 +716,9 @@ $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
                 <div class="empty-state">
                     <h3 class="empty-title">No Orders Found</h3>
                     <p class="empty-text">
-                        <?php if($searchQuery || $filterStatus !== 'all'): ?>
-                            No orders match your current filters. Try adjusting your search criteria.
-                        <?php else: ?>
-                            You haven't placed any orders yet. Start shopping to see your orders here!
-                        <?php endif; ?>
+                        You haven't placed any orders yet. Start shopping to see your orders here!
                     </p>
-                    <?php if(!$searchQuery && $filterStatus === 'all'): ?>
-                        <a href="index.php" class="empty-action">Start Shopping</a>
-                    <?php else: ?>
-                        <a href="my_orders.php" class="empty-action">Clear Filters</a>
-                    <?php endif; ?>
+                    <a href="index.php" class="empty-action">Start Shopping</a>
                 </div>
             <?php endif; ?>
         </div>
